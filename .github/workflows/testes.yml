@@ -27,7 +27,7 @@ jobs:
         # O programa é usado no Windows; o Ubuntu pega o que depender do sistema.
         os: [windows-latest, ubuntu-latest]
         # A versão mínima declarada no pyproject.toml e a mais recente.
-        python: ["3.10", "3.14"]
+        python: ["3.11", "3.14"]
 
     steps:
       - uses: actions/checkout@v5

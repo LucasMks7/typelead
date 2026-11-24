@@ -10,7 +10,7 @@ Treino de inglês com vídeos: ouvir uma fala por vez, digitar o que entendeu e 
 
 ## Rodar
 
-Precisa de Python 3.10 ou mais novo.
+Precisa de Python 3.11 ou mais novo.
 
 ```text
 python -m pip install -e ".[dev]"        # no processador
