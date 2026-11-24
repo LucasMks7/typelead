@@ -25,6 +25,19 @@ No trecho de 3 segundos, o começo ficou de 7 a 29 ms depois do pedido (mediana 
 
 Um identificador que não existe devolveu o código **150**, e não o 100 que eu esperava. O 150 também é o código de incorporação proibida, então ele sozinho não diz qual dos dois aconteceu, e a mensagem do programa cita as duas possibilidades.
 
+## O endereço da página decide o que toca
+
+Dois vídeos, dois endereços, o mesmo servidor, computador e navegador:
+
+| Vídeo | `127.0.0.1` | `localhost` |
+| --- | --- | --- |
+| `TLPdxz2wioA` (trecho de série) | toca | toca |
+| `gdx7gN1UyX0` (clipe de música) | erro 150 | toca |
+
+O yt-dlp informava que o clipe podia ser incorporado. **Decisão:** a página aberta por `127.0.0.1` é levada para `localhost`. O servidor continua a escutar só em `127.0.0.1`. O motivo da recusa não é documentado, e outros vídeos podem ser recusados também por `localhost`.
+
+O erro 150 chegou 1 ms depois do aviso de que o player estava pronto. O programa já não esperava por ele, e Ouvir não fazia nada. Agora o erro é guardado e avisado.
+
 ## Limites da medição
 
 - Um vídeo, um computador, aba visível. Com a aba escondida, o navegador atrasa os relógios, e a pausa atrasaria junto.

@@ -107,7 +107,13 @@ function leituras(palavra) {
   return [...new Set([partes.join(""), ...abertas])];
 }
 
+// Nenhuma palavra inglesa tem três letras iguais seguidas: "soooo" é "so" esticado, e
+// ninguém deve contar quantas letras a legenda usou.
+const ESTICADA = /(\p{L})\1{2,}/gu;
+
 function leiturasSimples(palavra) {
+  const curta = palavra.replace(ESTICADA, "$1");
+  if (curta !== palavra) return [...leiturasSimples(curta), ...leiturasSimples(palavra.replace(ESTICADA, "$1$1"))];
   if (INFORMAIS.has(palavra)) return [semApostrofo(palavra), ...INFORMAIS.get(palavra)];
   if (palavra.length > 4 && palavra.endsWith("in'")) return [palavra.slice(0, -1), `${palavra.slice(0, -1)}g`];
   // O que sobra nas pontas são aspas simples ou o plural em "dogs'".

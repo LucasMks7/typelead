@@ -4,6 +4,7 @@ A legenda quebra o texto para caber na tela; aqui ele é quebrado para caber na
 memória: de 4 a 10 palavras, de preferência terminando onde a frase termina.
 """
 
+import re
 from dataclasses import dataclass
 
 from .alinhamento import estimar, normalizar
@@ -33,6 +34,10 @@ PEDEM_CONTINUACAO = frozenset(
     "a an the my your his her its our their of to in on at for with from by as is are was were am be "
     "i'm you're he's she's it's we're they're i you he she we they and but or so because if very not".split()
 )
+# "Ooooh", "mmm", "la la": não há o que escutar nem como escrever.
+VOCALIZACAO = re.compile(r"o+h+|a+h+|u+h+|e+h+|o{3,}|a{3,}|m{2,}|h+m+|w+h?o+a+h*|(?:la+|na+|da+|doo+)+")
+# Escritas só com vocalizações, mas querem dizer sim, não ou "deu errado".
+COM_SENTIDO = {"mmhmm", "mmhm", "mhmm", "mhm", "uhuh", "uhoh"}
 
 
 @dataclass(frozen=True)
@@ -45,7 +50,10 @@ class _Item:
 
 
 def dividir(falas: list[Fala]) -> list[Fala]:
-    """Refaz as falas. Cada palavra aparece uma vez, na ordem em que foi dita."""
+    """Refaz as falas. Cada palavra aparece uma vez, na ordem em que foi dita.
+
+    Só ficam de fora os trechos inteiros de vocalização, a não ser que tudo seja.
+    """
     itens = [
         _Item(palavra, k == 0, k == 0 or bool(fala.palavras), k == 0 and fala.troca)
         for fala in falas
@@ -53,7 +61,19 @@ def dividir(falas: list[Fala]) -> list[Fala]:
     ]
     if not itens:
         return []
-    return _com_margens([_montar(itens[a:b]) for a, b in _melhores_trechos(itens)])
+    trechos = [_montar(itens[a:b]) for a, b in _melhores_trechos(itens)]
+    return _com_margens([trecho for trecho in trechos if not _so_vocalizacao(trecho)] or trechos)
+
+
+def _so_vocalizacao(fala: Fala) -> bool:
+    # Um travessão ou reticências soltas também não são palavra.
+    for palavra in fala.texto.split():
+        if normalizar(palavra) in COM_SENTIDO:
+            return False
+        partes = [normalizar(parte) for parte in palavra.split("-")]
+        if not all(VOCALIZACAO.fullmatch(parte) for parte in partes if parte):
+            return False
+    return True
 
 
 def _melhores_trechos(itens: list[_Item]) -> list[tuple[int, int]]:

@@ -58,7 +58,9 @@ async function abrir(link) {
     $("sala").hidden = false;
     const alvo = document.createElement("div");
     $("palco").replaceChildren(alvo);
-    const novo = await Player.criar(alvo, achado.id);
+    const novo = await Player.criar(alvo, achado.id, (erro) => {
+      if (vez === abertura && erro.definitivo) falhou(erro);
+    });
     if (vez !== abertura) {
       novo.destruir();
       return;
@@ -109,6 +111,8 @@ function mostrarEtapa(texto, fracao) {
 }
 
 async function transcreverPeloSom() {
+  // Sem isto, a pessoa autorizaria o som de um vídeo que não vai tocar.
+  if (player.impedimento) return falhou(player.impedimento);
   const vez = abertura;
   avisar("");
   let som;

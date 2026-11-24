@@ -68,6 +68,11 @@ test("números de 0 a 100, com algarismo ou por extenso", () => {
   recusa(["3.5 miles", "35 miles"], ["I have 2 cups", "I have three cups"]);
 });
 
+test("ninguém conta as letras de uma palavra esticada", () => {
+  aceita(["OH COMPANY OOOOOOOOOH", "oh company ooh"], ["Noooo!", "no"], ["sooo good", "soooooo good"], ["sooon", "soon"]);
+  recusa(["Noooo!", "not"], ["too", "to"], ["soon", "son"]);
+});
+
 test("hífen vale como espaço ou nada", () => {
   aceita(["a well-known fact", "a well known fact"], ["send an e-mail", "send an email"], ["check in", "check-in"], ["twenty-five-year-old", "twentyfiveyearold"]);
 });

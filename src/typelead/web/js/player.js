@@ -15,10 +15,17 @@ const ERROS = {
   153: "O YouTube não recebeu o endereço desta página (Referer).",
 };
 
+// Depois destes, tentar tocar de novo não adianta.
+const DEFINITIVOS = new Set([2, 100, 101, 150, 153]);
+
 export class ErroDoPlayer extends Error {
   constructor(codigo) {
     super(ERROS[codigo] ?? `O player do YouTube falhou (código ${codigo}).`);
     this.codigo = codigo;
+  }
+
+  get definitivo() {
+    return DEFINITIVOS.has(this.codigo);
   }
 }
 
@@ -42,8 +49,13 @@ export class Player {
   #YT;
   #ouvintes = new Set();
   #vez = 0;
+  #erro;
 
-  static async criar(elemento, video) {
+  /**
+   * O erro de um vídeo proibido chega logo depois de o player ficar pronto, quando
+   * ninguém mais espera por ele aqui; por isso o `aoFalhar`.
+   */
+  static async criar(elemento, video, aoFalhar = () => {}) {
     const player = new Player();
     player.#YT = await carregarApi();
     await new Promise((resolver, rejeitar) => {
@@ -54,8 +66,11 @@ export class Player {
         events: {
           onReady: resolver,
           onError: ({ data }) => {
-            rejeitar(new ErroDoPlayer(data));
-            player.#avisar({ erro: new ErroDoPlayer(data) });
+            const erro = new ErroDoPlayer(data);
+            player.#erro = erro;
+            rejeitar(erro);
+            player.#avisar({ erro });
+            aoFalhar(erro);
           },
           onStateChange: ({ data }) => player.#avisar({ estado: data }),
           // O módulo de legendas só existe depois que o vídeo começa.
@@ -70,6 +85,11 @@ export class Player {
     return this.#yt.getCurrentTime();
   }
 
+  /** O erro que impede este vídeo de tocar, se houver. */
+  get impedimento() {
+    return this.#erro?.definitivo ? this.#erro : undefined;
+  }
+
   silenciar(sim) {
     if (sim) this.#yt.mute();
     else this.#yt.unMute();
@@ -80,6 +100,7 @@ export class Player {
    * "fim", "pausada" ou "cancelada".
    */
   async tocarFala(inicio, fim, velocidade = 1) {
+    if (this.impedimento) throw this.impedimento;
     const { PAUSED, ENDED } = this.#YT.PlayerState;
     this.#vez += 1;
     const vez = this.#vez;
@@ -133,6 +154,7 @@ export class Player {
    * carregamento não encerram. `sinal` é um AbortSignal para parar antes.
    */
   async tocarParaGravar(inicio, fim, sinal) {
+    if (this.impedimento) throw this.impedimento;
     this.#vez += 1;
     this.#yt.setPlaybackRate(1);
     const { ENDED } = this.#YT.PlayerState;

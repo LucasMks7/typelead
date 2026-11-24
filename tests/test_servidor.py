@@ -9,7 +9,7 @@ from typelead.transcricao import FalhaNaTranscricao
 from typelead.transcricoes import Transcricoes
 from typelead.youtube import Achado, FalhaNoYouTube
 
-BASE = "http://127.0.0.1:8765"
+BASE = "http://localhost:8765"
 MARCAS = {"marcas": [{"gravado": 0, "video": 0}, {"gravado": 1, "video": 1}]}
 
 
@@ -46,9 +46,32 @@ def test_manda_o_referer_que_o_player_do_youtube_exige(cliente):
     assert cliente.get("/").headers["referrer-policy"] == "strict-origin-when-cross-origin"
 
 
-@pytest.mark.parametrize("host", ["localhost", "localhost:8765", "127.0.0.1:8765"])
-def test_aceita_os_nomes_deste_computador(cliente, host):
+@pytest.mark.parametrize("host", ["localhost", "localhost:8765"])
+def test_aceita_o_nome_deste_computador(cliente, host):
     assert cliente.get("/", headers={"host": host}).status_code == 200
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "127.0.0.1:8765", "127.0.0.1:80@exemplo.com"])
+def test_a_pagina_aberta_pelo_numero_vai_para_o_nome(cliente, host):
+    resposta = cliente.get("/validacao.html?v=abc&t=3", headers={"host": host}, follow_redirects=False)
+    assert resposta.status_code == 307
+    assert resposta.headers["location"] == "http://localhost:8765/validacao.html?v=abc&t=3"
+    assert resposta.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+
+
+def test_o_desvio_nao_leva_a_outro_site(cliente):
+    resposta = cliente.get("//exemplo.com/a", headers={"host": "127.0.0.1:8765"}, follow_redirects=False)
+    assert resposta.headers["location"].startswith("http://localhost:8765/")
+
+
+def test_a_api_pelo_numero_nao_e_desviada(cliente):
+    resposta = cliente.get("/api/transcricoes/x", headers={"host": "127.0.0.1:8765"}, follow_redirects=False)
+    assert resposta.status_code == 404
+
+
+def test_outro_site_pelo_numero_continua_recusado(cliente):
+    cabecalhos = {"host": "127.0.0.1:8765", "origin": "https://exemplo.com"}
+    assert cliente.get("/", headers=cabecalhos, follow_redirects=False).status_code == 403
 
 
 @pytest.mark.parametrize("host", ["exemplo.com", "exemplo.com:8765", "127.0.0.1.exemplo.com", ""])

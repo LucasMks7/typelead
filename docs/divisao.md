@@ -43,3 +43,7 @@ Programação dinâmica: cada corte e cada tamanho têm um custo, e o programa a
 Os pesos foram escolhidos à mão e conferidos nestes vídeos. O uso real vai dizer se precisam mudar.
 
 Em um vídeo com 20 mil palavras, mais de duas horas, o alinhamento leva 3,7 s e a divisão, 0,8 s.
+
+## O que fica de fora
+
+Um trecho inteiro de vocalização ("Ooooh", "la la la") não entra na prática. Se ela vem junto de palavras, fica. Em `gdx7gN1UyX0`, um clipe, isso tira 2 de 35 falas.

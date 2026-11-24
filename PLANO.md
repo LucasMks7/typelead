@@ -34,7 +34,7 @@ A ideia de digitar junto com vídeos já existe em outros sites. O que este proj
 
 ## Decisões
 
-- **Formato:** programa local que abre no navegador, em `http://127.0.0.1`. Não há servidor na internet, conta nem login.
+- **Formato:** programa local que abre no navegador, em `http://localhost`. Não há servidor na internet, conta nem login.
 - **Servidor:** Python com FastAPI. Guarda os dados, prepara as falas e escolhe lacunas e revisões.
 - **Interface:** HTML, CSS e JavaScript em módulos, sem framework nem etapa de build no começo. A correção letra a letra fica no navegador, porque precisa responder na hora; os testes usam o `node --test`.
 - **Banco:** SQLite, com SQL escrito à mão. É parte do objetivo de currículo.

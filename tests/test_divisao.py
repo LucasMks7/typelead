@@ -128,3 +128,23 @@ def test_nunca_perde_repete_nem_troca_a_ordem_das_palavras():
         assert all(fala.fim > fala.inicio for fala in prontas)
         assert all(a.inicio <= b.inicio for a, b in zip(prontas, prontas[1:]))
         assert all(len(fala.palavras) <= 18 for fala in prontas)
+
+
+@pytest.mark.parametrize("som", ["OOOOOOOOOH OOOOOOOOOH", "Ooh, ooh, ooh!", "la la la", "Oh!", "Hmm...", "Whoa-oh", "na-na-na", "—"])
+def test_trecho_so_de_vocalizacao_fica_de_fora(som):
+    falas = [falada("The kettle is on the stove."), falada(som, 10), falada("Bring two cups for us.", 20)]
+    assert textos(dividir(falas)) == ["The kettle is on the stove.", "Bring two cups for us."]
+
+
+@pytest.mark.parametrize("texto", ["Uh huh", "Mm-hmm", "Uh-oh!", "Uh-huh", "Oh no", "Yeah!", "Hey", "A", "I do", "Moo", "No."])
+def test_palavra_curta_de_verdade_fica(texto):
+    falas = [falada("The kettle is on the stove."), falada(texto, 10)]
+    assert textos(dividir(falas)) == ["The kettle is on the stove.", texto]
+
+
+def test_vocalizacao_no_meio_de_uma_fala_fica():
+    assert textos(dividir([falada("Oh, bring two cups for us.")])) == ["Oh, bring two cups for us."]
+
+
+def test_video_so_de_vocalizacao_continua_aberto():
+    assert textos(dividir([falada("la la la la")])) == ["la la la la"]

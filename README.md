@@ -20,7 +20,7 @@ typelead
 
 A primeira transcrição baixa o modelo: 1,5 GB com placa da NVIDIA ou 500 MB sem.
 
-Depois, abra http://127.0.0.1:8765. O servidor só atende este computador. Para usar outra porta: `typelead --porta 9000`.
+Depois, abra http://localhost:8765. O servidor só atende este computador. Para usar outra porta: `typelead --porta 9000`.
 
 ## Como usar
 
@@ -43,7 +43,7 @@ Em **Corrigir**, dá para escolher **enquanto digito**: cada palavra é corrigid
 - Maiúscula, pontuação e acento não contam.
 - `don't`, `do not` e `dont` valem o mesmo, assim como `gonna` e `going to`. A exceção é quando o apóstrofo muda a palavra e o som: `were` não vale por `we're`.
 - Números de 0 a 100 valem em algarismo ou por extenso. Acima disso, e em anos e ordinais (`1999`, `19th`), só vale a forma da legenda.
-- `well-known` vale `well known`.
+- `well-known` vale `well known`, e `sooooo` vale `so`.
 - Grafias diferentes, como `colour` e `color`, contam como erro.
 
 Vídeos cujo dono não permite incorporação ainda não funcionam. A página de validação do player e do som fica em `/validacao.html`.

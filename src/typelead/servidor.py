@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -25,7 +25,9 @@ from .youtube import FalhaNoYouTube
 PASTA_WEB = Path(__file__).parent / "web"
 ENDERECO = "127.0.0.1"
 PORTA_PADRAO = 8765
-NOMES_ACEITOS = {"127.0.0.1", "localhost"}
+# O YouTube recusa alguns vídeos em uma página aberta pelo número (docs/player.md).
+NOME = "localhost"
+NOMES_ACEITOS = {ENDERECO, NOME}
 
 # O YouTube recusa o pedido feito pelo programa, mas o player pode tocar o vídeo
 # assim mesmo: a pessoa ainda consegue transcrever.
@@ -64,7 +66,7 @@ def criar_app(transcricoes: Transcricoes | None = None, buscar: Callable = youtu
         # Ele também pode mandar um pedido direto para cá; a origem o denuncia.
         if not _nome_aceito(request.headers.get("host", "")) or not _origem_aceita(request):
             return JSONResponse({"detail": "Pedido recusado."}, status_code=403)
-        resposta = await seguir(request)
+        resposta = _para_o_nome(request) or await seguir(request)
         # Sem o Referer, o player do YouTube responde com o erro 153.
         resposta.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         resposta.headers["X-Content-Type-Options"] = "nosniff"
@@ -170,6 +172,16 @@ def _nome_aceito(host: str) -> bool:
     return host.rsplit(":", 1)[0] in NOMES_ACEITOS
 
 
+def _para_o_nome(request: Request) -> RedirectResponse | None:
+    """Leva a página aberta pelo número ao mesmo lugar, pelo nome."""
+    pelo_numero = request.headers.get("host", "").startswith(ENDERECO)
+    if not pelo_numero or request.method not in {"GET", "HEAD"} or request.url.path.startswith("/api/"):
+        return None
+    # A porta é a do servidor, e não a do cabeçalho, que poderia levar a outro site.
+    porta = request.scope["server"][1]
+    return RedirectResponse(str(request.url.replace(scheme="http", netloc=f"{NOME}:{porta}")), status_code=307)
+
+
 def _origem_aceita(request: Request) -> bool:
     """Só a própria página muda alguma coisa aqui; ler também, por garantia."""
     origem = request.headers.get("origin")
@@ -193,7 +205,7 @@ def main() -> int:
     import uvicorn
 
     transcricoes = Transcricoes()
-    print(f"typelead em http://{ENDERECO}:{porta} (Ctrl+C encerra)", flush=True)
+    print(f"typelead em http://{NOME}:{porta} (Ctrl+C encerra)", flush=True)
     try:
         uvicorn.run(criar_app(transcricoes), host=ENDERECO, port=porta, log_level="warning")
     finally:
