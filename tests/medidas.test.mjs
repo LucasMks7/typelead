@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { deveParar, resumir, volume } from "../src/typelead/web/js/medidas.js";
+import { deveParar, julgarSom, resumir, volume } from "../src/typelead/web/js/medidas.js";
 
 test("resume uma quantidade ímpar de valores, sem depender da ordem", () => {
   assert.deepEqual(resumir([30, 10, 20]), { n: 3, minimo: 10, mediana: 20, maximo: 30 });
@@ -39,4 +39,31 @@ test("para no fim do trecho, ou antes dele com a antecipação", () => {
   assert.equal(deveParar(10, 10), true);
   assert.equal(deveParar(9.9, 10, 0.1), true);
   assert.equal(deveParar(9.8, 10, 0.1), false);
+});
+
+const com = (mediana) => ({ n: 30, minimo: 0, mediana, maximo: 1 });
+
+test("há som do vídeo na gravação: sim", () => {
+  const juizo = julgarSom({ parado: com(0), tom: com(0.02), video: com(0.03) });
+  assert.equal(juizo.resposta, "sim");
+});
+
+test("o tom chega e o vídeo não: não", () => {
+  const juizo = julgarSom({ parado: com(0), tom: com(0.02), video: com(0) });
+  assert.equal(juizo.resposta, "não");
+});
+
+// Foi o que aconteceu no primeiro teste real, que respondeu "não gravou".
+test("som antes de tocar é inconclusivo, e não um 'não'", () => {
+  const juizo = julgarSom({ parado: com(0.085), tom: com(0.02), video: com(0.026) });
+  assert.equal(juizo.resposta, "inconclusivo");
+});
+
+test("se nem o tom de controle chegou, é inconclusivo", () => {
+  const juizo = julgarSom({ parado: com(0), tom: com(0), video: com(0) });
+  assert.equal(juizo.resposta, "inconclusivo");
+});
+
+test("sem todas as medidas, é inconclusivo", () => {
+  assert.equal(julgarSom({ parado: null, tom: com(0), video: com(0) }).resposta, "inconclusivo");
 });

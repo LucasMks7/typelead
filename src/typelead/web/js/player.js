@@ -71,6 +71,16 @@ export class Player {
     else this.#yt.unMute();
   }
 
+  /** Pausa e espera o som acabar de sair. */
+  async pausar() {
+    this.#yt.pauseVideo();
+    await esperar(600);
+  }
+
+  get som() {
+    return { volume: this.#yt.getVolume(), mudo: this.#yt.isMuted() };
+  }
+
   destruir() {
     this.#yt.destroy();
   }

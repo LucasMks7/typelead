@@ -66,7 +66,9 @@ A pessoa também pode abrir um arquivo `.srt` ou `.vtt`, ou um vídeo próprio d
 
 A API oficial do YouTube não resolve a legenda: ela só permite baixá-la a quem pode editar o vídeo.
 
-**Ainda não provado:** se o Chrome inclui o som do player incorporado na gravação da aba, e se a extensão consegue controlar a página do YouTube. Testar nas sessões 41 e 56.
+**Provado na sessão 41:** o Chrome inclui o som do player incorporado na gravação da aba ([docs/player.md](docs/player.md)).
+
+**Ainda não provado:** se esse som basta para uma boa transcrição (sessão 44) e se a extensão consegue controlar a página do YouTube (sessão 56).
 
 ## Dados principais
 
@@ -96,7 +98,7 @@ São regras simples, que podem ser explicadas e testadas. A medida de sucesso é
 | Risco | O que fazer |
 | --- | --- |
 | O YouTube recusar o pedido da legenda | Transcrever pelo som da aba ou abrir um arquivo de legenda |
-| A gravação da aba não pegar o som do player | Validar na sessão 41, antes de construir o resto; se falhar, rever o plano com o Lucas |
+| O som gravado da aba não dar uma boa transcrição | Medir na sessão 44; a gravação em si já foi validada |
 | O dono do vídeo proibir a incorporação | Detectar o erro do player e avisar logo ao adicionar; a extensão resolve na sessão 56 |
 | Erro 153 do player, por falta do cabeçalho `Referer` | Servir por HTTP, nunca por `file://`. Testado: não ocorre |
 | O player parar fora do ponto exato | Medido: até 9 ms de atraso, sem precisar de margem ([docs/player.md](docs/player.md)) |

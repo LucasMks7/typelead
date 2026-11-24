@@ -1,10 +1,7 @@
 // Página de validação: mede a precisão do player e testa a gravação do som da aba.
 
-import { resumir, volume } from "./medidas.js";
+import { julgarSom, resumir, volume } from "./medidas.js";
 import { Player, esperar } from "./player.js";
-
-// Volume abaixo disto é tratado como silêncio.
-const SILENCIO = 0.001;
 
 const $ = (id) => document.getElementById(id);
 const ms = (segundos) => Math.round(segundos * 1000);
@@ -77,13 +74,43 @@ $("medir").addEventListener("click", () =>
   }),
 );
 
+/** Mede o volume até a promessa terminar e devolve o resumo. */
+async function ouvirAte(analisador, promessa) {
+  const bloco = new Float32Array(analisador.fftSize);
+  const volumes = [];
+  let terminou = false;
+  const fim = promessa.finally(() => (terminou = true));
+  while (!terminou) {
+    await Promise.race([fim, esperar(50)]);
+    analisador.getFloatTimeDomainData(bloco);
+    volumes.push(volume(bloco));
+  }
+  await fim;
+  return resumir(volumes);
+}
+
+/** Toca um tom baixo da própria página, como controle do teste. */
+async function tocarTom(contexto, duracao) {
+  const ganho = contexto.createGain();
+  ganho.gain.value = 0.03;
+  const tom = contexto.createOscillator();
+  tom.frequency.value = 440;
+  tom.connect(ganho).connect(contexto.destination);
+  tom.start();
+  await esperar(duracao);
+  tom.stop();
+  tom.disconnect();
+  await esperar(200);
+}
+
 $("gravar").addEventListener("click", () =>
   comBotoesTravados("resultado-som", async () => {
-    escrever("resultado-som", "Escolha esta aba e deixe marcado o compartilhamento do som.");
-    // O Chrome exige pedir a imagem junto; só a faixa de som é usada.
+    escrever("resultado-som", "Escolha esta aba, deixe o som marcado e não mexa no vídeo.");
+    // O Chrome exige pedir a imagem junto; só a faixa de som é usada. Os filtros
+    // de voz ficam desligados: o de eco existe para apagar o som que sai do PC.
     const midia = await navigator.mediaDevices.getDisplayMedia({
       video: true,
-      audio: true,
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       preferCurrentTab: true,
     });
     const contexto = new AudioContext();
@@ -93,34 +120,27 @@ $("gravar").addEventListener("click", () =>
       await contexto.resume();
       const analisador = contexto.createAnalyser();
       contexto.createMediaStreamSource(new MediaStream([faixa])).connect(analisador);
-      const bloco = new Float32Array(analisador.fftSize);
-      const ouvir = async (duracao) => {
-        const volumes = [];
-        for (let t = 0; t < duracao; t += 50) {
-          analisador.getFloatTimeDomainData(bloco);
-          volumes.push(volume(bloco));
-          await esperar(50);
-        }
-        return resumir(volumes);
-      };
 
-      const p = await prepararPlayer();
-      p.silenciar(false);
       const { inicio, fim } = lerTrecho();
-      // O silêncio antes de tocar é a referência: sem ele, um som qualquer do
-      // PC poderia passar por som do vídeo.
-      escrever("resultado-som", "Medindo o silêncio antes de tocar…");
-      const antes = await ouvir(1500);
-      escrever("resultado-som", "Tocando o trecho e medindo o som…");
-      const [durante] = await Promise.all([
-        ouvir((fim - inicio) * 1000),
-        p.tocarTrecho(inicio, fim),
-      ]);
-      const ouviu = antes.maximo < SILENCIO && durante.maximo > SILENCIO;
-      escrever(
-        "resultado-som",
-        JSON.stringify({ somDoPlayerGravado: ouviu, taxa: contexto.sampleRate, antes, durante }, null, 2),
-      );
+      const p = await prepararPlayer();
+      await p.pausar();
+      p.silenciar(false);
+
+      escrever("resultado-som", "1/3 · Medindo o silêncio…");
+      const parado = await ouvirAte(analisador, esperar(1500));
+      escrever("resultado-som", "2/3 · Tocando o tom de controle…");
+      const tom = await ouvirAte(analisador, tocarTom(contexto, 1000));
+      escrever("resultado-som", "3/3 · Tocando o trecho do vídeo…");
+      const video = await ouvirAte(analisador, p.tocarTrecho(inicio, fim));
+
+      const resultado = {
+        somDoPlayerGravado: julgarSom({ parado, tom, video }),
+        medidas: { parado, tom, video },
+        player: p.som,
+        fonte: midia.getVideoTracks()[0].getSettings().displaySurface,
+        taxa: contexto.sampleRate,
+      };
+      escrever("resultado-som", JSON.stringify(resultado, null, 2));
     } finally {
       midia.getTracks().forEach((faixa) => faixa.stop());
       await contexto.close();

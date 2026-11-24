@@ -33,4 +33,16 @@ Um identificador que não existe devolveu o código **150**, e não o 100 que eu
 
 ## Som da aba
 
-Ainda não testado. A página de validação tem o botão; o Chrome exige que uma pessoa autorize.
+O Chrome inclui o som do player incorporado quando a própria aba é compartilhada por `getDisplayMedia`, com a autorização da pessoa:
+
+| Momento | Volume gravado (mediana) | Maior |
+| --- | ---: | ---: |
+| Tudo parado | 0 | 0 |
+| Tom da própria página | 0,0212 | 0,0212 |
+| Trecho do vídeo, 60 s a 63 s | 0,0224 | 0,1335 |
+
+O volume é o RMS, de 0 a 1, a 44,1 kHz. O tom é uma onda senoidal de amplitude 0,03, cujo RMS teórico é 0,03 ÷ √2 = 0,0212: o tom chegou no nível esperado.
+
+**O primeiro teste respondeu errado.** Ele exigia silêncio antes e respondia "não gravou" sem ele. O vídeo tocava enquanto a página esperava a autorização, e a resposta foi "não" com som gravado. A correção foi pausar o vídeo antes, incluir o tom como controle e separar "não" de "inconclusivo".
+
+**Não foi testado:** se o som gravado basta para o Whisper transcrever bem, se a gravação aguenta um vídeo longo, e o que acontece com anúncios ou com a aba escondida. A transcrição fica para a sessão 44.
