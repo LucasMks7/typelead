@@ -1,7 +1,7 @@
 // Traduz uma tecla na ação da prática. Puro, para ser testado sem navegador.
 
-// Um Map, e não um objeto, que herdaria nomes como "toString".
-const ACOES = new Map([
+// Maps, e não objetos, que herdariam nomes como "toString".
+const FORA = new Map([
   ["ArrowUp", "voltar"],
   ["ArrowDown", "avancar"],
   ["Enter", "mostrar"],
@@ -11,20 +11,32 @@ const ACOES = new Map([
   ["=", "maisRapido"],
 ]);
 
-// Dentro de um campo, estas escrevem texto; com Ctrl, continuam sendo atalho.
-const ESCREVEM = new Set([" ", "-", "+", "="]);
+// No ditado, espaço e sinais escrevem.
+const NO_DITADO = new Map([
+  ["ArrowUp", "voltar"],
+  ["ArrowDown", "avancar"],
+  ["Enter", "enter"],
+]);
+
+// Ctrl com - e + é o zoom do navegador; por isso a velocidade fica nas setas.
+const COM_CTRL = new Map([
+  [" ", "repetir"],
+  ["Enter", "mostrar"],
+  ["ArrowUp", "maisRapido"],
+  ["ArrowDown", "maisDevagar"],
+]);
 
 /**
  * Devolve a ação da tecla, ou null.
- * `emCampo`: o foco está em um campo de texto. `emBotao`: em algo que já
- * responde a Enter e espaço.
+ * `onde`: "ditado"; "campo", outro campo, dono das próprias teclas; "botao", que
+ * já responde a Enter e espaço; ou nada.
  */
-export function acaoDaTecla({ key, ctrlKey, altKey, metaKey, isComposing }, { emCampo, emBotao } = {}) {
-  if (altKey || metaKey || isComposing) return null;
-  const acao = ACOES.get(key);
-  if (!acao) return null;
-  if (ctrlKey) return key === " " ? acao : null; // Ctrl com - e + é o zoom.
-  if (emCampo && ESCREVEM.has(key)) return null;
-  if (emBotao && (key === "Enter" || key === " ")) return null;
-  return acao;
+export function acaoDaTecla({ key, ctrlKey, altKey, metaKey, shiftKey, isComposing }, onde) {
+  if (altKey || metaKey || isComposing || onde === "campo") return null;
+  if (onde === "botao" && (key === "Enter" || key === " ")) return null;
+  if (ctrlKey) return COM_CTRL.get(key) ?? null;
+  if (onde !== "ditado") return FORA.get(key) ?? null;
+  // Shift com as setas seleciona o texto digitado.
+  if (shiftKey && key.startsWith("Arrow")) return null;
+  return NO_DITADO.get(key) ?? null;
 }

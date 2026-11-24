@@ -4,7 +4,7 @@
 
 Treino de inglês com vídeos: ouvir uma fala por vez, digitar o que entendeu e rever os erros. Roda no próprio PC, sem conta e sem assinatura.
 
-> **Status:** em desenvolvimento. Já dá para abrir um vídeo e ouvir uma fala por vez; a digitação com correção é o próximo passo. Nada é salvo ainda: recarregar a página perde uma transcrição. O plano completo está em [PLANO.md](PLANO.md).
+> **Status:** em desenvolvimento. Já dá para abrir um vídeo e praticar o ditado, uma fala por vez; o modo de lacunas é o próximo passo. Nada é salvo ainda: recarregar a página perde as respostas e uma transcrição. O plano completo está em [PLANO.md](PLANO.md).
 
 > **Uso pessoal:** os Termos de Serviço do YouTube restringem downloads e o acesso automatizado. O vídeo toca no player oficial do YouTube e não é baixado. Este projeto não tem ligação com o YouTube.
 
@@ -26,14 +26,25 @@ Depois, abra http://127.0.0.1:8765. O servidor só atende este computador. Para 
 
 1. Cole o link e aperte Enter. Se o vídeo tem legenda em inglês, a prática começa.
 2. Sem legenda, escolha **Transcrever pelo som**: o vídeo toca inteiro, e o programa ouve a aba. Na janela do Chrome, escolha a própria aba e deixe o som marcado. Também dá para abrir um arquivo SRT ou VTT.
-3. Ouça cada fala até entender e confira o texto.
+3. Ouça a fala, digite o que entendeu e aperte Enter. As palavras certas ficam verdes, as erradas, riscadas, e as que faltaram viram um traço. Conserte e aperte Enter de novo, ou aperte Enter sem mudar nada para ver a resposta.
 
 | Tecla | O que faz |
 | --- | --- |
-| espaço | ouvir a fala de novo |
+| Enter | corrigir; depois, ver a resposta ou seguir. Com o campo vazio, ouvir |
+| Ctrl+espaço | ouvir a fala de novo |
 | ↓ e ↑ | próxima e anterior |
-| Enter | mostrar ou esconder o texto |
-| − e + | mudar a velocidade |
+| Ctrl+Enter | mostrar ou esconder o texto |
+| Ctrl+↓ e Ctrl+↑ | mais devagar e mais rápido |
+
+Em **Corrigir**, dá para escolher **enquanto digito**: cada palavra é corrigida ao apertar espaço, sem revelar a resposta.
+
+### O que conta como certo
+
+- Maiúscula, pontuação e acento não contam.
+- `don't`, `do not` e `dont` valem o mesmo, assim como `gonna` e `going to`. A exceção é quando o apóstrofo muda a palavra e o som: `were` não vale por `we're`.
+- Números de 0 a 100 valem em algarismo ou por extenso. Acima disso, e em anos e ordinais (`1999`, `19th`), só vale a forma da legenda.
+- `well-known` vale `well known`.
+- Grafias diferentes, como `colour` e `color`, contam como erro.
 
 Vídeos cujo dono não permite incorporação ainda não funcionam. A página de validação do player e do som fica em `/validacao.html`.
 
@@ -76,7 +87,8 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | `src/typelead/web/js/player.js` | Conversa com o player do YouTube e toca um trecho exato |
 | `src/typelead/web/js/medidas.js` | Contas puras, testadas fora do navegador |
 | `src/typelead/web/js/app.js` | A tela de prática |
-| `src/typelead/web/js/pratica.js`, `atalhos.js` | O estado da prática e os atalhos, testados fora do navegador |
+| `src/typelead/web/js/correcao.js` | Compara o digitado com a fala, palavra por palavra |
+| `src/typelead/web/js/ditado.js`, `pratica.js`, `atalhos.js` | O estado do ditado, o da prática e os atalhos, testados fora do navegador |
 | `src/typelead/web/js/validacao.js` | Página de validação |
 | [docs/player.md](docs/player.md) | O que foi medido no player e as decisões |
 | [docs/legendas.md](docs/legendas.md) | O que foi medido na busca de legendas |

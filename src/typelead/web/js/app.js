@@ -2,6 +2,7 @@
 
 import { enviarJson, pedir, transcrever } from "./api.js";
 import { acaoDaTecla } from "./atalhos.js";
+import { QUANDO_CORRIGIR, Resposta } from "./ditado.js";
 import { Gravacao, pedirSomDaAba } from "./gravador.js";
 import { Player } from "./player.js";
 import { Pratica, fita, relogio } from "./pratica.js";
@@ -18,6 +19,7 @@ const $ = (id) => document.getElementById(id);
 let video; // o que o servidor disse do vídeo aberto
 let player;
 let pratica;
+let respostas; // por fala: voltar a uma delas traz o que foi digitado
 // Muda a cada vídeo aberto: uma resposta atrasada do anterior é ignorada.
 let abertura = 0;
 
@@ -79,6 +81,7 @@ function limpar() {
   player?.destruir();
   player = undefined;
   pratica = undefined;
+  respostas = undefined;
   $("palco").replaceChildren();
   for (const id of ["sala", "sem-legenda", "pratica", "fita"]) $(id).hidden = true;
   $("inicio").hidden = false;
@@ -173,6 +176,7 @@ async function abrirArquivo(arquivo) {
 
 function praticar(falas, origem) {
   pratica = new Pratica(falas, video.comeco);
+  respostas = falas.map((fala) => new Resposta(fala.texto));
   $("sem-legenda").hidden = true;
   $("pratica").hidden = false;
   $("total").textContent = falas.length;
@@ -180,7 +184,11 @@ function praticar(falas, origem) {
   $("velocidade").value = String(pratica.velocidade);
   montarFita();
   atualizar();
+  $("digitado").focus();
 }
+
+const respostaAtual = () => respostas[pratica.indice];
+const corrigeDigitando = () => $("quando").value === "digitando";
 
 function montarFita() {
   const duracao = video.duracao || player.duracao;
@@ -210,20 +218,70 @@ function atualizar() {
   $("mostrar").setAttribute("aria-pressed", String(pratica.mostrada));
   $("velocidade").value = String(pratica.velocidade);
 
-  const palavras = pratica.quantasPalavras;
-  $("fala").classList.toggle("escondida", !pratica.mostrada);
-  $("fala").textContent = pratica.mostrada
-    ? pratica.fala.texto
-    : `${palavras} ${palavras === 1 ? "palavra" : "palavras"}. Ouça quantas vezes precisar.`;
-  // O leitor de tela precisa saber que o texto é em inglês.
-  if (pratica.mostrada) $("fala").lang = "en";
-  else $("fala").removeAttribute("lang");
+  if ($("digitado").value !== respostaAtual().texto) $("digitado").value = respostaAtual().texto;
+  atualizarFala();
 
   for (const bloco of $("fita").children) {
     const atual = Number(bloco.dataset.indice) === pratica.indice;
     bloco.toggleAttribute("aria-current", atual);
     bloco.tabIndex = atual ? 0 : -1;
   }
+}
+
+/** O texto da fala: escondido, corrigido ou à mostra. */
+function atualizarFala() {
+  const resposta = respostaAtual();
+  const { mostrada } = pratica;
+  let itens = resposta.itens;
+  if (corrigeDigitando() && !resposta.conferida && !mostrada) itens = resposta.parcial();
+  if (itens?.length === 0) itens = null;
+
+  const palavras = pratica.quantasPalavras;
+  $("fala").classList.toggle("escondida", !itens && !mostrada);
+  if (itens) $("fala").replaceChildren(...itens.flatMap((item) => [marcar(item, mostrada), " "]));
+  else if (mostrada) $("fala").textContent = pratica.fala.texto;
+  else $("fala").textContent = `${palavras} ${palavras === 1 ? "palavra" : "palavras"}. Ouça quantas vezes precisar.`;
+  // O leitor de tela precisa saber que o texto é em inglês.
+  if (itens || mostrada) $("fala").lang = "en";
+  else $("fala").removeAttribute("lang");
+
+  $("placar").textContent = placar(resposta, mostrada);
+  $("placar").classList.toggle("certo", resposta.acertou);
+}
+
+/** Uma palavra corrigida. A resposta só aparece se a fala estiver à mostra. */
+function marcar({ tipo, esperada, digitada }, mostrada) {
+  const marca = document.createElement("span");
+  marca.className = `palavra ${tipo}`;
+  const por = (tag, textContent, mais) => marca.append(Object.assign(document.createElement(tag), { textContent, ...mais }));
+  // A cor não chega a todos: o tipo do erro também vai em texto para o leitor de tela.
+  const explicar = (texto) => por("span", texto, { className: "oculto", lang: "pt-BR" });
+
+  if (tipo === "certa" || tipo === "pendente") {
+    por("span", esperada || digitada);
+    return marca;
+  }
+  if (digitada) {
+    explicar(tipo === "sobrou" ? " a mais: " : " errada: ");
+    por("s", digitada);
+  }
+  if (esperada && mostrada) {
+    explicar(" o certo: ");
+    por("strong", esperada);
+  } else if (tipo === "faltou") {
+    explicar(" falta uma palavra ");
+    por("span", "", { className: "lacuna" });
+  }
+  return marca;
+}
+
+function placar(resposta, mostrada) {
+  if (!resposta.conferida) return "";
+  const { certas, total, sobras } = resposta.resumo;
+  const seguir = pratica.ultima ? "É a última fala do vídeo." : "Enter vai para a próxima.";
+  if (resposta.acertou) return `Tudo certo${resposta.comAjuda ? ", com o texto à mostra" : ""}. ${seguir}`;
+  const pontos = `${certas} de ${total} certas${sobras ? `, ${sobras} a mais` : ""}.`;
+  return mostrada ? `${pontos} ${seguir}` : `${pontos} Corrija e aperte Enter, ou só Enter para ver a resposta.`;
 }
 
 async function ouvir() {
@@ -244,8 +302,16 @@ const ACOES = {
   repetir: ouvir,
   mostrar: () => {
     pratica.mostrar(!pratica.mostrada);
+    if (pratica.mostrada) respostaAtual().mostrou();
     atualizar();
   },
+  conferir: () => {
+    const resposta = respostaAtual();
+    resposta.conferir();
+    if (resposta.acertou && !resposta.comAjuda) $("fita").children[pratica.indice].setAttribute("data-acertada", "");
+    atualizar();
+  },
+  enter: () => ACOES[respostaAtual().proximoPasso(pratica.mostrada)](),
   maisDevagar: () => {
     pratica.mudarVelocidade(-1);
     atualizar();
@@ -260,6 +326,7 @@ const ACOES = {
 function mudar(movimento) {
   if (!movimento()) return;
   atualizar();
+  $("digitado").focus();
   ouvir();
 }
 
@@ -283,26 +350,39 @@ $("velocidade").addEventListener("change", ({ target }) => {
   pratica.definirVelocidade(Number(target.value));
   atualizar();
 });
+$("digitado").addEventListener("input", ({ target }) => {
+  respostaAtual().escrever(target.value);
+  atualizarFala();
+});
+$("quando").addEventListener("change", ({ target }) => {
+  guardar("quando", target.value);
+  // Anunciar cada palavra digitada atropelaria o leitor de tela.
+  $("fala").ariaLive = corrigeDigitando() ? "off" : "polite";
+  if (pratica) atualizarFala();
+});
 $("fita").addEventListener("click", ({ target }) => {
   if (target.dataset.indice) mudar(() => pratica.irPara(Number(target.dataset.indice)));
 });
 
-// Clicado com o mouse, o botão não fica com o foco: o espaço seguinte repetiria o
-// botão em vez de ouvir. Pelo teclado, o foco continua onde está.
+// Clicado com o mouse, o botão devolve o foco ao ditado. Pelo teclado, o foco
+// continua onde está.
 document.addEventListener("click", (evento) => {
-  if (evento.detail > 0) evento.target.closest("#pratica button, #fita button")?.blur();
+  if (evento.detail > 0 && evento.target.closest("#pratica button, #fita button")) $("digitado").focus();
 });
+
+function onde(alvo) {
+  if (alvo.id === "digitado") return "ditado";
+  if (alvo.matches("input, textarea, select")) return "campo";
+  return alvo.matches("button, a") ? "botao" : undefined;
+}
 
 document.addEventListener("keydown", (evento) => {
   if (!pratica || evento.defaultPrevented) return;
-  const alvo = evento.target;
-  const acao = acaoDaTecla(evento, {
-    emCampo: alvo.matches("input, textarea, select"),
-    emBotao: alvo.matches("button, a"),
-  });
-  // Nas opções de velocidade, as setas escolhem.
-  if (!acao || alvo.matches("select")) return;
+  const acao = acaoDaTecla(evento, onde(evento.target));
+  if (!acao) return;
   evento.preventDefault();
+  // Segurar o Enter não pode conferir, mostrar e avançar de uma vez.
+  if (evento.repeat && evento.key === "Enter") return;
   ACOES[acao]();
 });
 
@@ -312,9 +392,34 @@ window.addEventListener("blur", () => {
     if (pratica && document.activeElement?.tagName === "IFRAME") {
       document.activeElement.blur();
       window.focus();
+      $("digitado").focus();
     }
   }, 0);
 });
+
+// A preferência fica neste navegador. Com o armazenamento bloqueado, vale só até
+// recarregar.
+
+function guardar(nome, valor) {
+  try {
+    localStorage.setItem(nome, valor);
+  } catch {
+    // Sem armazenamento: nada a fazer.
+  }
+}
+
+function guardado(nome) {
+  try {
+    return localStorage.getItem(nome);
+  } catch {
+    return null;
+  }
+}
+
+if (QUANDO_CORRIGIR.includes(guardado("quando"))) {
+  $("quando").value = guardado("quando");
+  $("quando").dispatchEvent(new Event("change"));
+}
 
 const pedido = new URLSearchParams(location.search).get("v");
 if (pedido) {

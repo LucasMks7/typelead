@@ -26,7 +26,7 @@ A ideia de digitar junto com vídeos já existe em outros sites. O que este proj
 
 | Modo | O que a pessoa faz | Quando entra |
 | --- | --- | --- |
-| Ditado | Ouve e digita a fala inteira | Primeira versão utilizável |
+| Ditado | Ouve e digita a fala inteira; a correção vem no Enter ou durante a digitação | Primeira versão utilizável |
 | Lacunas | Completa as palavras escondidas | Primeira versão utilizável |
 | Revisão | Refaz os trechos vencidos | Segunda etapa |
 | Assistir | Vê o vídeo com a legenda que acompanha | Segunda etapa |

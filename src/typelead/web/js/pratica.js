@@ -1,5 +1,7 @@
 // O estado da prática, sem navegador: qual fala, em que velocidade, à mostra ou não.
 
+import { separar } from "./correcao.js";
+
 export const VELOCIDADES = [0.5, 0.75, 1];
 
 export class Pratica {
@@ -43,7 +45,7 @@ export class Pratica {
   }
 
   get quantasPalavras() {
-    return this.fala.texto.split(/\s+/).length;
+    return separar(this.fala.texto).length;
   }
 
   /** Vai para uma fala, escondendo o texto. Devolve se mudou de lugar. */

@@ -22,8 +22,8 @@
       <p id="aviso" class="aviso" role="status" hidden></p>
 
       <section id="inicio" class="inicio">
-        <h1>Ouça uma fala por vez.</h1>
-        <p>Cole o link de um vídeo em inglês. O typelead divide o que é dito em trechos curtos, e você ouve cada um até entender.</p>
+        <h1>Ouça e digite.</h1>
+        <p>Cole o link de um vídeo em inglês. O typelead divide o que é dito em trechos curtos, e você escreve o que ouviu em cada um. A correção é palavra por palavra.</p>
       </section>
 
       <div id="sala" class="sala" hidden>
@@ -62,11 +62,15 @@
 
           <div id="fala" class="fala" aria-live="polite"></div>
 
+          <label class="oculto" for="digitado">O que você ouviu, em inglês</label>
+          <textarea id="digitado" class="digitado" rows="2" lang="en" maxlength="1000" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Digite o que ouviu"></textarea>
+          <p id="placar" class="placar" role="status"></p>
+
           <div class="controles">
             <button id="voltar" type="button" title="Fala anterior (↑)">↑ Anterior</button>
-            <button id="repetir" type="button" class="principal" title="Ouvir de novo (espaço)">Ouvir</button>
+            <button id="repetir" type="button" class="principal" title="Ouvir de novo (Ctrl+espaço)">Ouvir</button>
             <button id="avancar" type="button" title="Próxima fala (↓)">↓ Próxima</button>
-            <button id="mostrar" type="button" title="Mostrar ou esconder o texto (Enter)" aria-pressed="false">Mostrar texto</button>
+            <button id="mostrar" type="button" title="Mostrar ou esconder o texto (Ctrl+Enter)" aria-pressed="false">Mostrar texto</button>
             <label class="velocidade">
               Velocidade
               <select id="velocidade">
@@ -75,10 +79,17 @@
                 <option value="0.5">0,5×</option>
               </select>
             </label>
+            <label class="velocidade">
+              Corrigir
+              <select id="quando">
+                <option value="enter">ao apertar Enter</option>
+                <option value="digitando">enquanto digito</option>
+              </select>
+            </label>
           </div>
 
           <p class="ajuda">
-            <kbd>espaço</kbd> ouvir <kbd>↓</kbd> próxima <kbd>↑</kbd> anterior <kbd>Enter</kbd> texto <kbd>−</kbd><kbd>+</kbd> velocidade
+            <kbd>Enter</kbd> corrigir e seguir <kbd>Ctrl</kbd><kbd>espaço</kbd> ouvir <kbd>↑</kbd><kbd>↓</kbd> mudar de fala <kbd>Ctrl</kbd><kbd>Enter</kbd> texto <kbd>Ctrl</kbd><kbd>↑</kbd><kbd>↓</kbd> velocidade
           </p>
         </section>
       </div>

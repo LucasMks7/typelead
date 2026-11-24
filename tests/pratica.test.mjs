@@ -91,22 +91,36 @@ test("atalhos fora de um campo", () => {
   assert.equal(acao("toString"), null);
 });
 
-test("dentro de um campo, espaço e sinais escrevem; Ctrl+espaço repete", () => {
-  const campo = { emCampo: true };
-  assert.equal(acaoDaTecla({ key: " " }, campo), null);
-  assert.equal(acaoDaTecla({ key: "-" }, campo), null);
-  assert.equal(acaoDaTecla({ key: " ", ctrlKey: true }, campo), "repetir");
-  assert.equal(acaoDaTecla({ key: "ArrowDown" }, campo), "avancar");
+test("no ditado, espaço e sinais escrevem, e Enter é do ditado", () => {
+  const acao = (key, mais) => acaoDaTecla({ key, ...mais }, "ditado");
+  assert.equal(acao(" "), null);
+  assert.equal(acao("-"), null);
+  assert.equal(acao("Enter"), "enter");
+  assert.equal(acao("ArrowDown"), "avancar");
+  assert.equal(acao("ArrowUp", { shiftKey: true }), null);
+});
+
+test("com Ctrl, os atalhos que o ditado ocupou", () => {
+  const acao = (key) => acaoDaTecla({ key, ctrlKey: true }, "ditado");
+  assert.equal(acao(" "), "repetir");
+  assert.equal(acao("Enter"), "mostrar");
+  assert.equal(acao("ArrowUp"), "maisRapido");
+  assert.equal(acao("ArrowDown"), "maisDevagar");
+  assert.equal(acao("c"), null);
+});
+
+test("outro campo, como o do link, é dono de todas as teclas", () => {
+  for (const key of ["Enter", "ArrowDown", " ", "+"]) assert.equal(acaoDaTecla({ key }, "campo"), null);
 });
 
 test("em um botão, Enter e espaço são do botão", () => {
-  assert.equal(acaoDaTecla({ key: "Enter" }, { emBotao: true }), null);
-  assert.equal(acaoDaTecla({ key: " " }, { emBotao: true }), null);
-  assert.equal(acaoDaTecla({ key: "ArrowDown" }, { emBotao: true }), "avancar");
+  assert.equal(acaoDaTecla({ key: "Enter" }, "botao"), null);
+  assert.equal(acaoDaTecla({ key: " " }, "botao"), null);
+  assert.equal(acaoDaTecla({ key: "ArrowDown" }, "botao"), "avancar");
 });
 
 test("não rouba o zoom, o Alt nem a digitação com acento", () => {
   assert.equal(acaoDaTecla({ key: "-", ctrlKey: true }), null);
   assert.equal(acaoDaTecla({ key: "ArrowUp", altKey: true }), null);
-  assert.equal(acaoDaTecla({ key: "Enter", isComposing: true }), null);
+  assert.equal(acaoDaTecla({ key: "Enter", isComposing: true }, "ditado"), null);
 });
