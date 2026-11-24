@@ -31,6 +31,10 @@ Um identificador que não existe devolveu o código **150**, e não o 100 que eu
 - Não foram medidos: velocidade reduzida, vídeo com anúncio, Shorts e live gravada.
 - A medida é o tempo informado pelo player. O atraso do som até a caixa ou o fone não entra nela.
 
+## A legenda do próprio player
+
+Se a pessoa usa legendas no YouTube, o player incorporado as mostra e entrega a resposta. Desligar ao dar play não funciona: o módulo de legendas ainda não existe. O programa desliga quando o player avisa que o módulo carregou (`onApiChange`). O comando (`unloadModule`) não é documentado e pode deixar de funcionar.
+
 ## Som da aba
 
 O Chrome inclui o som do player incorporado quando a própria aba é compartilhada por `getDisplayMedia`, com a autorização da pessoa:

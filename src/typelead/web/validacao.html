@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>typelead — validação</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="validacao.css" />
+    <script type="module" src="js/validacao.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>typelead</h1>
+      <p>Página de validação: confere se o player e a gravação do som servem de base para o treino.</p>
+
+      <div id="palco"></div>
+
+      <section class="campos">
+        <label>Vídeo (identificador) <input id="video" value="aqz-KE-bpKQ" maxlength="11" spellcheck="false" /></label>
+        <label>Início (s) <input id="inicio" type="number" value="60" min="0" step="0.1" /></label>
+        <label>Fim (s) <input id="fim" type="number" value="63" min="0" step="0.1" /></label>
+        <label>Antecipação (ms) <input id="antecipacao" type="number" value="0" min="0" step="10" /></label>
+        <label>Repetições <input id="vezes" type="number" value="10" min="1" max="50" /></label>
+        <label class="marca"><input id="mudo" type="checkbox" checked /> Medir sem som</label>
+      </section>
+
+      <section>
+        <h2>1. Onde o trecho para</h2>
+        <button id="medir" type="button">Medir a parada</button>
+        <pre id="resultado-trecho" aria-live="polite"></pre>
+      </section>
+
+      <section>
+        <h2>2. Som da aba</h2>
+        <p>O Chrome vai pedir autorização. O teste mede o silêncio, toca um tom baixo e depois o vídeo. Não mexa no vídeo até terminar. O som é apenas medido: nada é salvo nem enviado.</p>
+        <button id="gravar" type="button">Testar o som da aba</button>
+        <pre id="resultado-som" aria-live="polite"></pre>
+      </section>
+
+      <section>
+        <h2>3. Transcrever o trecho</h2>
+        <p>Grava o som do trecho e transcreve neste computador. O som gravado é apagado em seguida.</p>
+        <button id="transcrever" type="button">Gravar e transcrever</button>
+        <pre id="resultado-transcricao" aria-live="polite"></pre>
+      </section>
+    </main>
+  </body>
+</html>

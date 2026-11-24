@@ -4,7 +4,7 @@
 
 Treino de inglês com vídeos: ouvir uma fala por vez, digitar o que entendeu e rever os erros. Roda no próprio PC, sem conta e sem assinatura.
 
-> **Status:** em desenvolvimento. Por enquanto, há uma página de validação do player e da transcrição, e o reconhecimento de links e a busca de legendas, ainda não ligados a ela. O plano completo está em [PLANO.md](PLANO.md).
+> **Status:** em desenvolvimento. Já dá para abrir um vídeo e ouvir uma fala por vez; a digitação com correção é o próximo passo. Nada é salvo ainda: recarregar a página perde uma transcrição. O plano completo está em [PLANO.md](PLANO.md).
 
 > **Uso pessoal:** os Termos de Serviço do YouTube restringem downloads e o acesso automatizado. O vídeo toca no player oficial do YouTube e não é baixado. Este projeto não tem ligação com o YouTube.
 
@@ -21,6 +21,21 @@ typelead
 A primeira transcrição baixa o modelo: 1,5 GB com placa da NVIDIA ou 500 MB sem.
 
 Depois, abra http://127.0.0.1:8765. O servidor só atende este computador. Para usar outra porta: `typelead --porta 9000`.
+
+## Como usar
+
+1. Cole o link e aperte Enter. Se o vídeo tem legenda em inglês, a prática começa.
+2. Sem legenda, escolha **Transcrever pelo som**: o vídeo toca inteiro, e o programa ouve a aba. Na janela do Chrome, escolha a própria aba e deixe o som marcado. Também dá para abrir um arquivo SRT ou VTT.
+3. Ouça cada fala até entender e confira o texto.
+
+| Tecla | O que faz |
+| --- | --- |
+| espaço | ouvir a fala de novo |
+| ↓ e ↑ | próxima e anterior |
+| Enter | mostrar ou esconder o texto |
+| − e + | mudar a velocidade |
+
+Vídeos cujo dono não permite incorporação ainda não funcionam. A página de validação do player e do som fica em `/validacao.html`.
 
 ## Links aceitos
 
@@ -60,6 +75,8 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | `src/typelead/web/js/gravador.js` | Grava o som da aba |
 | `src/typelead/web/js/player.js` | Conversa com o player do YouTube e toca um trecho exato |
 | `src/typelead/web/js/medidas.js` | Contas puras, testadas fora do navegador |
+| `src/typelead/web/js/app.js` | A tela de prática |
+| `src/typelead/web/js/pratica.js`, `atalhos.js` | O estado da prática e os atalhos, testados fora do navegador |
 | `src/typelead/web/js/validacao.js` | Página de validação |
 | [docs/player.md](docs/player.md) | O que foi medido no player e as decisões |
 | [docs/legendas.md](docs/legendas.md) | O que foi medido na busca de legendas |

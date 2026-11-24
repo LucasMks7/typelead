@@ -1,52 +1,303 @@
 :root {
   color-scheme: light dark;
+  --papel: light-dark(#f7f3ea, #1c1a17);
+  --folha: light-dark(#fffdf8, #262320);
+  --tinta: light-dark(#2a2621, #ece6da);
+  --tinta-fraca: light-dark(#6b6358, #a89f90);
+  --linha: light-dark(#ddd5c5, #3d3831);
+  --verde: light-dark(#1f6a4f, #6cc3a0);
+  --sobre-verde: light-dark(#ffffff, #10211a);
+  --ouro: light-dark(#8a5a00, #e6b450);
+  --erro: light-dark(#a3341f, #f0907c);
+
   font-family: system-ui, sans-serif;
   line-height: 1.5;
+  color: var(--tinta);
+  background: var(--papel);
 }
 
-main {
-  max-width: 46rem;
-  margin: 0 auto;
-  padding: 1rem;
+* {
+  box-sizing: border-box;
 }
 
-#palco,
-#palco iframe {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  height: auto;
+[hidden] {
+  display: none !important;
 }
 
-#palco {
-  background: #8883;
+body {
+  margin: 0;
+  min-height: 100vh;
 }
 
-.campos {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0.75rem;
-  margin-block: 1rem;
+.oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
-label {
+.topo {
   display: flex;
-  flex-direction: column;
-  font-size: 0.9rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 2rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--linha);
 }
 
 .marca {
-  flex-direction: row;
+  font: italic 1.5rem Georgia, "Times New Roman", serif;
+  color: var(--verde);
+  text-decoration: none;
+}
+
+.abrir {
+  display: flex;
+  flex: 1 1 20rem;
+  gap: 0.5rem;
+  max-width: 44rem;
+}
+
+.abrir input {
+  flex: 1;
+  min-width: 0;
+}
+
+main {
+  max-width: 84rem;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 2.5rem;
+}
+
+input,
+select,
+button,
+.botao {
+  font: inherit;
+  color: inherit;
+  background: var(--folha);
+  border: 1px solid var(--linha);
+  border-radius: 6px;
+  padding: 0.45rem 0.8rem;
+}
+
+button,
+.botao {
+  display: inline-block;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled),
+.botao:hover {
+  border-color: var(--verde);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.principal,
+.abrir button {
+  color: var(--sobre-verde);
+  background: var(--verde);
+  border-color: var(--verde);
+}
+
+:focus-visible,
+.oculto:focus-visible + .botao,
+.botao:has(+ .oculto:focus-visible) {
+  outline: 3px solid var(--ouro);
+  outline-offset: 2px;
+}
+
+.aviso {
+  margin: 0 0 1rem;
+  padding: 0.7rem 1rem;
+  border-left: 4px solid var(--ouro);
+  background: var(--folha);
+}
+
+.aviso.erro {
+  border-color: var(--erro);
+}
+
+.inicio {
+  max-width: 38rem;
+  margin: 14vh auto 0;
+}
+
+.inicio h1 {
+  font: 400 clamp(2.2rem, 5vw, 3.4rem) / 1.1 Georgia, "Times New Roman", serif;
+  margin: 0 0 1rem;
+}
+
+.inicio p {
+  font-size: 1.1rem;
+  color: var(--tinta-fraca);
+}
+
+.sala {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+@media (max-width: 60rem) {
+  .sala {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.palco,
+.palco iframe {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 8px;
+}
+
+.palco {
+  background: #000;
+  overflow: hidden;
+}
+
+.titulo {
+  margin: 0.6rem 0 0;
+}
+
+.titulo span {
+  color: var(--tinta-fraca);
+}
+
+.painel {
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 1.5rem;
+  background: var(--folha);
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+}
+
+.painel h2 {
+  font: 400 1.5rem Georgia, "Times New Roman", serif;
+  margin: 0 0 0.25rem;
+}
+
+.escolhas {
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.escolhas p {
+  margin: 0.4rem 0 0;
+  color: var(--tinta-fraca);
+  font-size: 0.92rem;
+}
+
+progress {
+  width: 100%;
+  accent-color: var(--verde);
+}
+
+.posicao {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin: 0;
+  color: var(--tinta-fraca);
+  font-variant-numeric: tabular-nums;
+}
+
+.etiqueta {
+  color: var(--ouro);
+}
+
+.fala {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 9rem;
+  padding: 1rem 0;
+  font: 400 clamp(1.5rem, 2.4vw, 2.1rem) / 1.35 Georgia, "Times New Roman", serif;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.fala.escondida {
+  font: 1rem system-ui, sans-serif;
+  color: var(--tinta-fraca);
+}
+
+.controles {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
 
-input,
-button {
-  font: inherit;
-  padding: 0.4rem 0.6rem;
+.velocidade {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  font-size: 0.92rem;
+  color: var(--tinta-fraca);
 }
 
-pre {
-  white-space: pre-wrap;
-  min-height: 1.5em;
+.ajuda {
+  margin: 0.9rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tinta-fraca);
+}
+
+kbd {
+  margin-left: 0.6rem;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+  font: 0.8rem ui-monospace, monospace;
+}
+
+kbd:first-child,
+kbd + kbd {
+  margin-left: 0;
+}
+
+/* A fita: todas as falas, em escala de tempo. */
+.fita {
+  position: relative;
+  height: 2.6rem;
+  margin-top: 1.5rem;
+  border-block: 1px solid var(--linha);
+}
+
+.fita button {
+  position: absolute;
+  inset-block: 0.5rem;
+  min-width: 2px;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--papel);
+  border-radius: 1px;
+  background: var(--linha);
+}
+
+.fita button:hover {
+  background: var(--tinta-fraca);
+}
+
+.fita button[data-ouvida] {
+  background: color-mix(in srgb, var(--verde) 45%, var(--papel));
+}
+
+.fita button[aria-current] {
+  inset-block: 0.15rem;
+  min-width: 4px;
+  background: var(--verde);
 }

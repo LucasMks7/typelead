@@ -7,6 +7,7 @@ from typelead.legendas import Fala
 from typelead.servidor import criar_app
 from typelead.transcricao import FalhaNaTranscricao
 from typelead.transcricoes import Transcricoes
+from typelead.youtube import Achado, FalhaNoYouTube
 
 BASE = "http://127.0.0.1:8765"
 MARCAS = {"marcas": [{"gravado": 0, "video": 0}, {"gravado": 1, "video": 1}]}
@@ -34,6 +35,7 @@ def test_entrega_a_pagina_inicial(cliente):
     resposta = cliente.get("/")
     assert resposta.status_code == 200
     assert "typelead" in resposta.text
+    assert cliente.get("/validacao.html").status_code == 200
 
 
 def test_javascript_sai_com_o_tipo_que_o_navegador_exige_de_um_modulo(cliente):
@@ -178,3 +180,65 @@ def test_as_antigas_sao_esquecidas(cliente):
     for _ in range(20):
         criar(cliente)
     assert cliente.get(f"/api/transcricoes/{primeira}").status_code == 404
+
+
+# O vídeo e a legenda
+
+
+def com_busca(pasta, resposta):
+    def buscar(video):
+        if isinstance(resposta, Exception):
+            raise resposta
+        return Achado(video=video, **resposta)
+
+    return TestClient(criar_app(Transcricoes(pasta=pasta), buscar), base_url=BASE)
+
+
+ACHADO = {
+    "titulo": "Tea time",
+    "canal": "Cozinha",
+    "duracao": 60,
+    "incorporavel": True,
+    "origem": "autor",
+    "falas": (Fala(1, 1.4, "The kettle"), Fala(1.4, 2, "is on.")),
+}
+
+
+def test_abre_o_video_com_as_falas_ja_divididas(pasta):
+    resposta = com_busca(pasta, ACHADO).post("/api/videos", json={"link": "youtu.be/aqz-KE-bpKQ?t=9"})
+    dados = resposta.json()
+    assert resposta.status_code == 200
+    assert (dados["id"], dados["comeco"], dados["titulo"], dados["origem"]) == ("aqz-KE-bpKQ", 9, "Tea time", "autor")
+    assert [fala["texto"] for fala in dados["falas"]] == ["The kettle is on."]
+
+
+def test_link_que_nao_serve_explica_o_motivo(pasta):
+    resposta = com_busca(pasta, ACHADO).post("/api/videos", json={"link": "https://www.youtube.com/@blender"})
+    assert resposta.status_code == 422 and "canal" in resposta.json()["detail"]
+
+
+def test_video_que_nao_existe(pasta):
+    resposta = com_busca(pasta, FalhaNoYouTube("indisponivel", "Não existe.")).post(
+        "/api/videos", json={"link": "youtu.be/aqz-KE-bpKQ"}
+    )
+    assert resposta.status_code == 502 and resposta.json()["detail"] == "Não existe."
+
+
+def test_recusa_do_youtube_ainda_deixa_transcrever(pasta):
+    dados = (
+        com_busca(pasta, FalhaNoYouTube("recusado", "Recusou."))
+        .post("/api/videos", json={"link": "youtu.be/aqz-KE-bpKQ"})
+        .json()
+    )
+    assert (dados["id"], dados["origem"], dados["falas"], dados["motivo"]) == ("aqz-KE-bpKQ", None, [], "Recusou.")
+
+
+def test_abre_um_arquivo_de_legenda(cliente):
+    srt = "1\n00:00:01,000 --> 00:00:02,000\nThe kettle is on.\n"
+    resposta = cliente.post("/api/legendas", content=srt.encode())
+    assert [fala["texto"] for fala in resposta.json()["falas"]] == ["The kettle is on."]
+
+
+def test_arquivo_que_nao_e_legenda(cliente):
+    assert cliente.post("/api/legendas", content=b"nada").status_code == 422
+    assert cliente.post("/api/legendas", content=b"a" * 5_000_001).status_code == 413

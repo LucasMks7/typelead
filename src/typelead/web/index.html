@@ -3,46 +3,87 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>typelead — validação</title>
+    <title>typelead</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="estilo.css" />
-    <script type="module" src="js/validacao.js"></script>
+    <script type="module" src="js/app.js"></script>
   </head>
   <body>
+    <header class="topo">
+      <a class="marca" href="/">typelead</a>
+      <form id="abrir" class="abrir">
+        <label class="oculto" for="link">Link do YouTube</label>
+        <input id="link" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Cole um link do YouTube" maxlength="5000" required />
+        <button type="submit">Abrir</button>
+      </form>
+    </header>
+
     <main>
-      <h1>typelead</h1>
-      <p>Página de validação: confere se o player e a gravação do som servem de base para o treino.</p>
+      <p id="aviso" class="aviso" role="status" hidden></p>
 
-      <div id="palco"></div>
-
-      <section class="campos">
-        <label>Vídeo (identificador) <input id="video" value="aqz-KE-bpKQ" maxlength="11" spellcheck="false" /></label>
-        <label>Início (s) <input id="inicio" type="number" value="60" min="0" step="0.1" /></label>
-        <label>Fim (s) <input id="fim" type="number" value="63" min="0" step="0.1" /></label>
-        <label>Antecipação (ms) <input id="antecipacao" type="number" value="0" min="0" step="10" /></label>
-        <label>Repetições <input id="vezes" type="number" value="10" min="1" max="50" /></label>
-        <label class="marca"><input id="mudo" type="checkbox" checked /> Medir sem som</label>
+      <section id="inicio" class="inicio">
+        <h1>Ouça uma fala por vez.</h1>
+        <p>Cole o link de um vídeo em inglês. O typelead divide o que é dito em trechos curtos, e você ouve cada um até entender.</p>
       </section>
 
-      <section>
-        <h2>1. Onde o trecho para</h2>
-        <button id="medir" type="button">Medir a parada</button>
-        <pre id="resultado-trecho" aria-live="polite"></pre>
-      </section>
+      <div id="sala" class="sala" hidden>
+        <section class="cena" aria-label="Vídeo">
+          <div id="palco" class="palco"></div>
+          <p class="titulo"><strong id="titulo"></strong> <span id="canal"></span></p>
+        </section>
 
-      <section>
-        <h2>2. Som da aba</h2>
-        <p>O Chrome vai pedir autorização. O teste mede o silêncio, toca um tom baixo e depois o vídeo. Não mexa no vídeo até terminar. O som é apenas medido: nada é salvo nem enviado.</p>
-        <button id="gravar" type="button">Testar o som da aba</button>
-        <pre id="resultado-som" aria-live="polite"></pre>
-      </section>
+        <section id="sem-legenda" class="painel" hidden>
+          <h2>Falta o texto deste vídeo</h2>
+          <p id="motivo"></p>
+          <div id="escolhas" class="escolhas">
+            <div>
+              <button id="transcrever" type="button" class="principal">Transcrever pelo som</button>
+              <p>O vídeo toca inteiro<span id="duracao-do-som"></span> enquanto o typelead ouve esta aba. Na janela do Chrome, escolha esta aba e deixe o som marcado. O som é apagado depois.</p>
+            </div>
+            <div>
+              <label class="botao" for="arquivo">Abrir arquivo de legenda</label>
+              <input id="arquivo" class="oculto" type="file" accept=".srt,.vtt" />
+              <p>SRT ou VTT, em inglês.</p>
+            </div>
+          </div>
+          <div id="andamento" hidden>
+            <p id="etapa" role="status"></p>
+            <progress id="barra" max="1" value="0"></progress>
+            <button id="parar-aqui" type="button">Parar aqui e transcrever o que tocou</button>
+          </div>
+        </section>
 
-      <section>
-        <h2>3. Transcrever o trecho</h2>
-        <p>Grava o som do trecho e transcreve neste computador. O som gravado é apagado em seguida.</p>
-        <button id="transcrever" type="button">Gravar e transcrever</button>
-        <pre id="resultado-transcricao" aria-live="polite"></pre>
-      </section>
+        <section id="pratica" class="painel pratica" hidden>
+          <p class="posicao">
+            <span>Fala <b id="numero"></b> de <b id="total"></b></span>
+            <span id="instante"></span>
+            <span id="origem" class="etiqueta"></span>
+          </p>
+
+          <div id="fala" class="fala" aria-live="polite"></div>
+
+          <div class="controles">
+            <button id="voltar" type="button" title="Fala anterior (↑)">↑ Anterior</button>
+            <button id="repetir" type="button" class="principal" title="Ouvir de novo (espaço)">Ouvir</button>
+            <button id="avancar" type="button" title="Próxima fala (↓)">↓ Próxima</button>
+            <button id="mostrar" type="button" title="Mostrar ou esconder o texto (Enter)" aria-pressed="false">Mostrar texto</button>
+            <label class="velocidade">
+              Velocidade
+              <select id="velocidade">
+                <option value="1">normal</option>
+                <option value="0.75">0,75×</option>
+                <option value="0.5">0,5×</option>
+              </select>
+            </label>
+          </div>
+
+          <p class="ajuda">
+            <kbd>espaço</kbd> ouvir <kbd>↓</kbd> próxima <kbd>↑</kbd> anterior <kbd>Enter</kbd> texto <kbd>−</kbd><kbd>+</kbd> velocidade
+          </p>
+        </section>
+      </div>
+
+      <nav id="fita" class="fita" aria-label="Falas do vídeo" hidden></nav>
     </main>
   </body>
 </html>

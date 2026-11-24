@@ -41,6 +41,7 @@ export class Player {
   #yt;
   #YT;
   #ouvintes = new Set();
+  #vez = 0;
 
   static async criar(elemento, video) {
     const player = new Player();
@@ -48,7 +49,8 @@ export class Player {
     await new Promise((resolver, rejeitar) => {
       player.#yt = new player.#YT.Player(elemento, {
         videoId: video,
-        playerVars: { playsinline: 1, rel: 0, origin: location.origin },
+        // Sem os controles e as teclas do player, que disputariam com os nossos.
+        playerVars: { playsinline: 1, rel: 0, controls: 0, disablekb: 1, origin: location.origin },
         events: {
           onReady: resolver,
           onError: ({ data }) => {
@@ -56,6 +58,8 @@ export class Player {
             player.#avisar({ erro: new ErroDoPlayer(data) });
           },
           onStateChange: ({ data }) => player.#avisar({ estado: data }),
+          // O módulo de legendas só existe depois que o vídeo começa.
+          onApiChange: () => player.#esconderLegenda(),
         },
       });
     });
@@ -71,6 +75,54 @@ export class Player {
     else this.#yt.unMute();
   }
 
+  /**
+   * Toca uma fala e para no fim dela. Chamar de novo cancela a anterior. Devolve
+   * "fim", "pausada" ou "cancelada".
+   */
+  async tocarFala(inicio, fim, velocidade = 1) {
+    const { PAUSED, ENDED } = this.#YT.PlayerState;
+    this.#vez += 1;
+    const vez = this.#vez;
+    this.#esconderLegenda();
+    this.#yt.setPlaybackRate(velocidade);
+    this.#yt.seekTo(inicio, true);
+    this.#yt.playVideo();
+    return new Promise((resolver, rejeitar) => {
+      // Logo depois do pulo, o player ainda pode informar o tempo antigo. O fim
+      // só é conferido depois de o tempo ter entrado na fala.
+      let entrou = false;
+      const encerrar = (acao, valor) => {
+        clearInterval(relogio);
+        this.#ouvintes.delete(ouvinte);
+        acao(valor);
+      };
+      const ouvinte = ({ estado, erro }) => {
+        if (erro) encerrar(rejeitar, erro);
+        else if (entrou && estado === PAUSED) encerrar(resolver, "pausada");
+        else if (entrou && estado === ENDED) encerrar(resolver, "fim");
+      };
+      const relogio = setInterval(() => {
+        if (vez !== this.#vez) return encerrar(resolver, "cancelada");
+        const agora = this.tempo;
+        entrou ||= agora >= inicio - 0.5 && agora < fim;
+        if (!entrou || !deveParar(agora, fim)) return undefined;
+        this.#yt.pauseVideo();
+        return encerrar(resolver, "fim");
+      }, 10);
+      this.#ouvintes.add(ouvinte);
+    });
+  }
+
+  /** A legenda do próprio player entregaria a resposta. */
+  #esconderLegenda() {
+    try {
+      this.#yt.setOption("captions", "track", {});
+      this.#yt.unloadModule("captions");
+    } catch {
+      // Não documentado: se sumir, o player segue como a pessoa o configurou.
+    }
+  }
+
   get duracao() {
     return this.#yt.getDuration();
   }
@@ -81,6 +133,8 @@ export class Player {
    * carregamento não encerram. `sinal` é um AbortSignal para parar antes.
    */
   async tocarParaGravar(inicio, fim, sinal) {
+    this.#vez += 1;
+    this.#yt.setPlaybackRate(1);
     const { ENDED } = this.#YT.PlayerState;
     this.#yt.seekTo(inicio, true);
     this.#yt.playVideo();
