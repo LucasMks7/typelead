@@ -145,3 +145,46 @@ def test_qualquer_erro_do_ytdlp_vira_falha_explicada():
         buscar(VIDEO, Dubl(erro=RuntimeError("This video is unavailable")))
     assert falha.value.codigo == "indisponivel"
     assert "não existe" in str(falha.value)
+
+
+AUTOMATICA = {
+    "events": [
+        {
+            "tStartMs": 700,
+            "dDurationMs": 2000,
+            "segs": [{"utf8": "the"}, {"utf8": " kettle", "tOffsetMs": 300}, {"utf8": " is", "tOffsetMs": 800}, {"utf8": " on", "tOffsetMs": 1000}],
+        }
+    ]
+}
+
+
+class DublComDuas(Dubl):
+    """Tem a legenda do autor e a automática."""
+
+    automatica = json.dumps(AUTOMATICA).encode()
+
+    def urlopen(self, endereco):
+        self.pedidos.append(endereco)
+        if "auto" in endereco:
+            if self.automatica is None:
+                raise OSError("HTTP Error 429")
+            return io.BytesIO(self.automatica)
+        return io.BytesIO(self.legenda)
+
+
+DUAS = info(automatic_captions={"en-orig": faixa("https://exemplo/auto")})
+
+
+def test_a_legenda_do_autor_ganha_os_tempos_da_automatica():
+    (fala,) = buscar(VIDEO, DublComDuas(DUAS)).falas
+    assert fala.texto == "The kettle is on."
+    assert [round(p.inicio, 1) for p in fala.palavras] == [0.7, 1.0, 1.5, 1.7]
+
+
+@pytest.mark.parametrize("resposta", [None, b"", b"<html>", b'{"events": []}'])
+def test_sem_a_automatica_a_do_autor_ainda_serve(resposta):
+    dubl = DublComDuas(DUAS)
+    dubl.automatica = resposta
+    achado = buscar(VIDEO, dubl)
+    assert achado.origem == "autor"
+    assert achado.falas[0].palavras == ()

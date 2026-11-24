@@ -217,7 +217,7 @@ def _falas_de_pedacos(pedacos: list[tuple[float, str]], fim: float) -> list[Fala
             iguais = [j for j, (outro, _) in enumerate(itens) if outro == instante]
             seguinte = next((outro for outro, _ in itens if outro > instante), None)
             limite = seguinte if seguinte is not None else max(fim, instante)
-            duracao = min(limite - instante, sum(_duracao(itens[j][1]) for j in iguais))
+            duracao = min(limite - instante, sum(duracao_maxima(itens[j][1]) for j in iguais))
             parte = duracao / len(iguais)
             comeco = instante + parte * iguais.index(i)
             palavras.append(Palavra(texto, comeco, comeco + parte))
@@ -227,7 +227,7 @@ def _falas_de_pedacos(pedacos: list[tuple[float, str]], fim: float) -> list[Fala
     return falas
 
 
-def _duracao(texto: str) -> float:
+def duracao_maxima(texto: str) -> float:
     """Quanto uma palavra dura no máximo, para o silêncio depois não contar como fala."""
     return 0.35 + 0.06 * len(texto)
 

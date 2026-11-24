@@ -53,6 +53,8 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | `src/typelead/links.py` | Reconhece os links do YouTube e o segundo inicial |
 | `src/typelead/youtube.py` | Consulta o vídeo e escolhe a legenda, sem baixar o vídeo |
 | `src/typelead/legendas.py` | Lê SRT, VTT e o formato do YouTube |
+| `src/typelead/alinhamento.py` | Junta o texto do autor com os tempos da legenda automática |
+| `src/typelead/divisao.py` | Divide o que foi falado em trechos bons de praticar |
 | `src/typelead/transcricao.py` | Transcreve o som gravado, com o tempo de cada palavra |
 | `src/typelead/transcricoes.py` | Fila de transcrições em segundo plano |
 | `src/typelead/web/js/gravador.js` | Grava o som da aba |
@@ -62,6 +64,7 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | [docs/player.md](docs/player.md) | O que foi medido no player e as decisões |
 | [docs/legendas.md](docs/legendas.md) | O que foi medido na busca de legendas |
 | [docs/transcricao.md](docs/transcricao.md) | O que foi medido na transcrição |
+| [docs/divisao.md](docs/divisao.md) | O que foi medido na divisão das falas |
 
 ## Licença
 

@@ -4,6 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 
+from .alinhamento import alinhar
 from .legendas import Fala, LegendaInvalida, ler_json3
 from .links import Video
 
@@ -147,18 +148,39 @@ def _legenda(ytdlp, info: dict) -> tuple[str | None, list[Fala], str | None]:
         return None, [], "Este vídeo não tem legenda em inglês."
     origem, endereco = escolhida
     try:
-        conteudo = ytdlp.urlopen(endereco).read()
-    except Exception:
-        return None, [], "O YouTube recusou o pedido da legenda."
-    # Quando desconfia do pedido, o YouTube responde com sucesso e nada dentro.
-    if not conteudo.strip():
-        return None, [], "O YouTube recusou o pedido da legenda."
-    try:
-        return origem, ler_json3(json.loads(conteudo)), None
+        falas = _baixar_legenda(ytdlp, endereco)
     except LegendaInvalida as erro:
         return None, [], str(erro)
-    except ValueError:
-        return None, [], "O YouTube mudou o formato da legenda."
+    if origem == "autor":
+        falas = _com_tempos(ytdlp, info, falas)
+    return origem, falas, None
+
+
+def _com_tempos(ytdlp, info: dict, falas: list[Fala]) -> list[Fala]:
+    """A legenda do autor só diz o tempo da fala; a automática diz o da palavra."""
+    automatica = escolher_legenda({"automatic_captions": info.get("automatic_captions")})
+    if automatica is None:
+        return falas
+    try:
+        return alinhar(falas, _baixar_legenda(ytdlp, automatica[1]))
+    except LegendaInvalida:
+        return falas
+
+
+def _baixar_legenda(ytdlp, endereco: str) -> list[Fala]:
+    try:
+        conteudo = ytdlp.urlopen(endereco).read()
+    except Exception as erro:
+        raise LegendaInvalida("O YouTube recusou o pedido da legenda.") from erro
+    # Quando desconfia do pedido, o YouTube responde com sucesso e nada dentro.
+    if not conteudo.strip():
+        raise LegendaInvalida("O YouTube recusou o pedido da legenda.")
+    try:
+        return ler_json3(json.loads(conteudo))
+    except LegendaInvalida:
+        raise
+    except ValueError as erro:
+        raise LegendaInvalida("O YouTube mudou o formato da legenda.") from erro
 
 
 class _Mudo:
