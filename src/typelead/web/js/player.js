@@ -71,6 +71,39 @@ export class Player {
     else this.#yt.unMute();
   }
 
+  get duracao() {
+    return this.#yt.getDuration();
+  }
+
+  /**
+   * Toca de `inicio` até `fim` ou até o vídeo acabar, para gravar o som. Ao
+   * contrário de tocarTrecho, uma pausa da pessoa, um anúncio ou uma espera de
+   * carregamento não encerram. `sinal` é um AbortSignal para parar antes.
+   */
+  async tocarParaGravar(inicio, fim, sinal) {
+    const { ENDED } = this.#YT.PlayerState;
+    this.#yt.seekTo(inicio, true);
+    this.#yt.playVideo();
+    await new Promise((resolver, rejeitar) => {
+      const encerrar = (acao, valor) => {
+        clearInterval(relogio);
+        this.#ouvintes.delete(ouvinte);
+        sinal?.removeEventListener("abort", parar);
+        acao(valor);
+      };
+      const parar = () => encerrar(resolver);
+      const ouvinte = ({ estado, erro }) => {
+        if (erro) encerrar(rejeitar, erro);
+        else if (estado === ENDED) encerrar(resolver);
+      };
+      const relogio = setInterval(() => deveParar(this.tempo, fim) && encerrar(resolver), 100);
+      this.#ouvintes.add(ouvinte);
+      sinal?.addEventListener("abort", parar);
+      if (sinal?.aborted) parar();
+    });
+    this.#yt.pauseVideo();
+  }
+
   /** Pausa e espera o som acabar de sair. */
   async pausar() {
     this.#yt.pauseVideo();

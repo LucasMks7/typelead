@@ -12,12 +12,24 @@ license-files = ["LICENSE"]
 authors = [{ name = "Lucas Marques de Assis" }]
 dynamic = ["version"]
 dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "faster-whisper>=1.2",
+    # O faster-whisper 1.2.1 abre o áudio com um argumento que o PyAV 19 removeu.
+    "av<19",
+    "numpy",
     # Lê os dados e a legenda do vídeo. O YouTube muda sempre: manter atualizado.
     "yt-dlp>=2026.11",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+# O httpx é o que o cliente de testes do FastAPI usa.
+dev = ["pytest>=8", "httpx>=0.27"]
+# Para transcrever na placa da NVIDIA. Ocupa cerca de 2 GB.
+gpu = [
+    "nvidia-cublas-cu12; sys_platform == 'win32' or sys_platform == 'linux'",
+    "nvidia-cudnn-cu12>=9,<10; sys_platform == 'win32' or sys_platform == 'linux'",
+]
 
 [project.scripts]
 typelead = "typelead.servidor:main"

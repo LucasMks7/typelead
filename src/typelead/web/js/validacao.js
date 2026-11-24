@@ -1,5 +1,7 @@
 // Página de validação: mede a precisão do player e testa a gravação do som da aba.
 
+import { transcrever } from "./api.js";
+import { Gravacao, pedirSomDaAba } from "./gravador.js";
 import { julgarSom, resumir, volume } from "./medidas.js";
 import { Player, esperar } from "./player.js";
 
@@ -106,17 +108,9 @@ async function tocarTom(contexto, duracao) {
 $("gravar").addEventListener("click", () =>
   comBotoesTravados("resultado-som", async () => {
     escrever("resultado-som", "Escolha esta aba, deixe o som marcado e não mexa no vídeo.");
-    // O Chrome exige pedir a imagem junto; só a faixa de som é usada. Os filtros
-    // de voz ficam desligados: o de eco existe para apagar o som que sai do PC.
-    const midia = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      preferCurrentTab: true,
-    });
+    const { faixa, encerrar } = await pedirSomDaAba();
     const contexto = new AudioContext();
     try {
-      const [faixa] = midia.getAudioTracks();
-      if (!faixa) throw new Error("a aba foi compartilhada sem o som.");
       await contexto.resume();
       const analisador = contexto.createAnalyser();
       contexto.createMediaStreamSource(new MediaStream([faixa])).connect(analisador);
@@ -137,13 +131,38 @@ $("gravar").addEventListener("click", () =>
         somDoPlayerGravado: julgarSom({ parado, tom, video }),
         medidas: { parado, tom, video },
         player: p.som,
-        fonte: midia.getVideoTracks()[0].getSettings().displaySurface,
         taxa: contexto.sampleRate,
       };
       escrever("resultado-som", JSON.stringify(resultado, null, 2));
     } finally {
-      midia.getTracks().forEach((faixa) => faixa.stop());
+      encerrar();
       await contexto.close();
     }
+  }),
+);
+
+$("transcrever").addEventListener("click", () =>
+  comBotoesTravados("resultado-transcricao", async () => {
+    escrever("resultado-transcricao", "Escolha esta aba e deixe o som marcado.");
+    const { faixa, encerrar } = await pedirSomDaAba();
+    let gravado;
+    try {
+      const { inicio, fim } = lerTrecho();
+      const p = await prepararPlayer();
+      p.silenciar(false);
+      const gravacao = new Gravacao(faixa, () => p.tempo);
+      await gravacao.iniciar();
+      escrever("resultado-transcricao", "Gravando o trecho…");
+      await p.tocarParaGravar(inicio, fim);
+      gravado = await gravacao.terminar();
+    } finally {
+      encerrar();
+    }
+    const falas = await transcrever(gravado, ({ estado, progresso }) =>
+      escrever("resultado-transcricao", `${estado} ${Math.round(progresso * 100)}%`),
+    );
+    const linhas = falas.map((f) => `${f.inicio.toFixed(2)} → ${f.fim.toFixed(2)}  ${f.texto}`);
+    escrever("resultado-transcricao", linhas.join("
+"));
   }),
 );
