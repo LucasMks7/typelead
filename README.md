@@ -4,7 +4,7 @@
 
 Treino de inglês com vídeos: ouvir uma fala por vez, digitar o que entendeu e rever os erros. Roda no próprio PC, sem conta e sem assinatura.
 
-> **Status:** em desenvolvimento. Por enquanto, há uma página de validação do player e o reconhecimento de links, ainda não ligado a ela. O plano completo está em [PLANO.md](PLANO.md).
+> **Status:** em desenvolvimento. Por enquanto, há uma página de validação do player, o reconhecimento de links e a busca de legendas, ainda não ligados a ela. O plano completo está em [PLANO.md](PLANO.md).
 
 > **Uso pessoal:** os Termos de Serviço do YouTube restringem downloads e o acesso automatizado. O vídeo toca no player oficial do YouTube e não é baixado. Este projeto não tem ligação com o YouTube.
 
@@ -48,10 +48,13 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | --- | --- |
 | `src/typelead/servidor.py` | Servidor local, com a biblioteca padrão do Python |
 | `src/typelead/links.py` | Reconhece os links do YouTube e o segundo inicial |
+| `src/typelead/youtube.py` | Consulta o vídeo e escolhe a legenda, sem baixar o vídeo |
+| `src/typelead/legendas.py` | Lê SRT, VTT e o formato do YouTube |
 | `src/typelead/web/js/player.js` | Conversa com o player do YouTube e toca um trecho exato |
 | `src/typelead/web/js/medidas.js` | Contas puras, testadas fora do navegador |
 | `src/typelead/web/js/validacao.js` | Página de validação |
 | [docs/player.md](docs/player.md) | O que foi medido no player e as decisões |
+| [docs/legendas.md](docs/legendas.md) | O que foi medido na busca de legendas |
 
 ## Licença
 

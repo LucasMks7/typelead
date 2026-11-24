@@ -11,6 +11,10 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Lucas Marques de Assis" }]
 dynamic = ["version"]
+dependencies = [
+    # Lê os dados e a legenda do vídeo. O YouTube muda sempre: manter atualizado.
+    "yt-dlp>=2026.11",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
