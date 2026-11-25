@@ -28,6 +28,7 @@ from .divisao import dividir
 from .legendas import TAMANHO_MAXIMO as LEGENDA_MAXIMA
 from .legendas import Fala, LegendaInvalida, Palavra, ler_arquivo
 from .links import LinkInvalido, reconhecer
+from .palavras import NOVA, formas, peso
 from .traducao import FalhaNaTraducao, Tradutor
 from .transcricao import FalhaNaTranscricao, Marca
 from .transcricoes import TAMANHO_MAXIMO, Transcricoes
@@ -118,6 +119,16 @@ class TentativaRecebida(BaseModel):
     duracao: float = Field(ge=0, le=10_000_000)
     itens: list[ItemRecebido] = Field(min_length=1, max_length=2000)
     traduziu: bool = False
+
+
+class PedidoDePesos(BaseModel):
+    palavras: list[Annotated[str, Field(max_length=200)]] = Field(max_length=50_000)
+    nivel: Literal["iniciante", "intermediario", "avancado"]
+
+
+class SabidaRecebida(BaseModel):
+    forma: str = Field(min_length=1, max_length=200)
+    sabida: bool
 
 
 class MarcaRecebida(BaseModel):
@@ -261,6 +272,25 @@ def criar_app(
     def corrigir_diagnostico(numero: int, recebido: DiagnosticoRecebido):
         if not banco.corrigir_diagnostico(numero, recebido.tipo):
             raise HTTPException(404, "Este erro não está salvo.")
+
+    @app.get("/api/palavras")
+    def listar_palavras():
+        return banco.palavras()
+
+    @app.put("/api/palavras", status_code=204)
+    def marcar_palavra(recebida: SabidaRecebida):
+        banco.marcar_sabida(recebida.forma, recebida.sabida)
+
+    @app.post("/api/pesos")
+    def pesar(pedido: PedidoDePesos):
+        """A chance de cada palavra ser escondida nas lacunas, na ordem em que veio."""
+        situacoes = banco.situacoes()
+        return {
+            "pesos": [
+                peso(palavra, pedido.nivel, situacoes.get(forma, NOVA))
+                for palavra, forma in zip(pedido.palavras, formas(pedido.palavras))
+            ]
+        }
 
     @app.post("/api/legendas")
     async def abrir_legenda(request: Request):

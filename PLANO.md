@@ -16,7 +16,7 @@ O repositório se chama `typelead`; a pasta local, `04-typelead`.
 A ideia de digitar junto com vídeos já existe em outros sites. O que este projeto tenta fazer melhor:
 
 1. **Falas de tamanho bom.** A legenda original traz linhas de 1 palavra e linhas de 35. O programa junta as curtas e divide as longas.
-2. **Lacunas escolhidas por motivo.** Esconde as palavras que valem a pena treinar, conforme o nível e o histórico de erros. Por enquanto, elas são sorteadas; a escolha depende do banco de palavras (sessão 52).
+2. **Lacunas escolhidas por motivo.** Esconde as palavras que valem a pena treinar, conforme o nível e o histórico de erros. A escolha é um sorteio em que cada palavra tem um peso.
 3. **Diagnóstico do erro.** Separa erro de digitação, palavra desconhecida e palavra conhecida que o ouvido não pegou.
 4. **Revisão espaçada com o trecho original.** A palavra errada volta dias depois, no áudio em que apareceu.
 5. **Sem cota de minutos e sem assinatura.** Roda no PC; os dados são do usuário e saem para o Anki.
@@ -27,7 +27,7 @@ A ideia de digitar junto com vídeos já existe em outros sites. O que este proj
 | Modo | O que a pessoa faz | Quando entra |
 | --- | --- | --- |
 | Tudo oculto | Ouve e completa a fala inteira, vendo quantas letras tem cada palavra | Primeira versão utilizável |
-| Lacunas | Igual, com algumas palavras sorteadas à mostra | Primeira versão utilizável |
+| Lacunas | Igual, com metade das palavras à mostra | Primeira versão utilizável |
 | Texto livre | Ouve e digita a fala inteira, sem pista | Primeira versão utilizável |
 | Revisão | Refaz os trechos vencidos | Segunda etapa |
 | Assistir | Vê o vídeo com a legenda que acompanha | Segunda etapa |
@@ -42,6 +42,7 @@ A ideia de digitar junto com vídeos já existe em outros sites. O que este proj
 - **Vídeo:** player oficial incorporado do YouTube, ou arquivo do próprio PC na tag `<video>`. O programa não baixa o vídeo do YouTube. Quando o dono proíbe a incorporação, entra a extensão.
 - **Transcrição:** faster-whisper, reaproveitando o que foi medido no transcritor de aulas. Na GTX 1050 Ti, `large-v3-turbo` em `int8`. Aqui será usado o tempo de cada palavra. A velocidade foi medida em português; em inglês será medida na sessão 44.
 - **Tradução:** OPUS-MT inglês-português, no processador, pelo CTranslate2 que o faster-whisper já traz. Só quando a pessoa pede.
+- **Frequência das palavras:** biblioteca `wordfreq` (Apache 2.0, dados CC BY-SA 4.0), como dependência; os dados não entram no repositório.
 - **Revisão espaçada:** algoritmo FSRS, pela biblioteca `fsrs` (licença MIT).
 - **IA paga:** nenhuma no caminho principal. Explicações começam por um dicionário offline.
 
@@ -70,7 +71,7 @@ A API oficial do YouTube não resolve a legenda: ela só permite baixá-la a que
 
 **Provado na sessão 41:** o Chrome inclui o som do player incorporado na gravação da aba ([docs/player.md](docs/player.md)).
 
-**Ainda não provado:** se esse som basta para uma boa transcrição (sessão 44) e se a extensão consegue controlar a página do YouTube (sessão 56).
+**Ainda não provado:** se a extensão consegue controlar a página do YouTube (sessão 56).
 
 ## Dados principais
 
@@ -78,7 +79,7 @@ A API oficial do YouTube não resolve a legenda: ela só permite baixá-la a que
 | --- | --- |
 | `videos` | Origem, título, duração e o ponto em que a pessoa parou |
 | `falas` | Início, fim, texto, tradução e ordem dentro do vídeo; trocar a legenda cria outra versão |
-| `palavras` | Forma base, frequência no inglês e situação para o usuário |
+| `palavras_sabidas` | As que a pessoa marcou como "já sei". A situação das outras é calculada de `itens`; a frequência vem do `wordfreq`. Cada forma conta separada: "go" e "went" são duas palavras |
 | `tentativas` | Uma resposta: modo, texto digitado, repetições, velocidade, dicas e duração |
 | `itens` | Cada palavra de uma tentativa: a esperada, a digitada, se estava certa e o diagnóstico |
 | `desistencias` | Quando a pessoa pediu a resposta |

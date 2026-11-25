@@ -15,6 +15,7 @@ from pathlib import Path
 from .alinhamento import normalizar
 from .diagnostico import Desistencia, Erro, Passo, diagnosticar
 from .legendas import Fala, Palavra
+from .palavras import COMUM_DEMAIS, SABIDA, frequencia, situacao
 
 # Cada item leva o banco de uma versão à seguinte. Um item publicado nunca muda:
 # há bancos por aí que já passaram por ele.
@@ -93,7 +94,66 @@ MIGRACOES = (
         criada_em TEXT NOT NULL
     );
     """,
+    """
+    -- O resto do banco de palavras é calculado do que já está salvo em itens.
+    CREATE TABLE palavras_sabidas (
+        forma TEXT PRIMARY KEY,
+        marcada_em TEXT NOT NULL
+    );
+    """,
 )
+
+# Como foi cada palavra em cada rodada: uma linha por erro que conta e por acerto
+# sem ajuda. Digitação não é falta de palavra. "Não sei dizer" só conta se a pessoa
+# desistiu sem ter acertado antes: quem aperta Enter no meio da fala deixa as
+# palavras seguintes em branco, e isso não quer dizer que não as conhece. Pela mesma
+# razão, a palavra muito comum em branco não conta, a menos que a pessoa diga o motivo.
+OCORRENCIAS = f"""
+    ultimos_erros AS (
+        SELECT itens.id, forma, rodada, posicao, esperada, fala_id, criada_em, tipo, corrigido,
+               COALESCE(corrigido, diagnostico) AS motivo,
+               -- O mesmo erro que a tela mostra: o último de cada palavra na rodada.
+               ROW_NUMBER() OVER (PARTITION BY rodada, posicao ORDER BY itens.id DESC) AS do_fim
+        FROM itens JOIN tentativas ON tentativas.id = tentativa_id
+        WHERE tipo IN ('trocada', 'faltou') AND forma GLOB '*[a-z]*'
+    ),
+    erros AS (
+        SELECT * FROM ultimos_erros
+        WHERE do_fim = 1 AND (
+            motivo IN ('escuta', 'vocabulario', 'homofono')
+            OR motivo = 'indefinido'
+               AND rodada IN (SELECT rodada FROM desistencias)
+               AND NOT EXISTS (
+                   SELECT 1 FROM itens JOIN tentativas ON tentativas.id = tentativa_id
+                   WHERE tentativas.rodada = ultimos_erros.rodada AND itens.posicao = ultimos_erros.posicao
+                     AND itens.tipo = 'certa' AND NOT com_ajuda
+               )
+        ) AND (tipo = 'trocada' OR corrigido IS NOT NULL OR frequencia(esperada) < {COMUM_DEMAIS})
+    ),
+    ocorrencias AS (
+        SELECT forma, rodada, 1 AS errou, criada_em FROM erros
+        UNION ALL
+        SELECT forma, rodada, 0, criada_em
+        FROM itens JOIN tentativas ON tentativas.id = tentativa_id
+        WHERE tipo = 'certa' AND NOT com_ajuda AND forma GLOB '*[a-z]*'
+          -- No texto livre, um item pode valer por duas palavras: "going to".
+          AND NOT (modo = 'livre' AND instr(esperada, ' '))
+    ),
+    por_rodada AS (
+        SELECT forma, rodada, MAX(errou) AS errou, MAX(criada_em) AS quando
+        FROM ocorrencias GROUP BY forma, rodada
+    ),
+    com_ultimo_erro AS (
+        SELECT *, MAX(CASE WHEN errou THEN quando END) OVER (PARTITION BY forma) AS ultimo_erro
+        FROM por_rodada
+    ),
+    historico AS (
+        SELECT forma, SUM(errou) AS erros, SUM(NOT errou) AS acertos, ultimo_erro,
+               SUM(NOT errou AND (ultimo_erro IS NULL OR quando > ultimo_erro)) AS acertos_seguidos,
+               forma IN (SELECT forma FROM palavras_sabidas) AS sabida
+        FROM com_ultimo_erro GROUP BY forma
+    )
+"""
 
 
 class FalhaNoBanco(RuntimeError):
@@ -147,6 +207,7 @@ class Banco:
             self._conexao = sqlite3.connect(caminho, check_same_thread=False)
             self._conexao.row_factory = sqlite3.Row
             self._conexao.execute("PRAGMA foreign_keys = ON")
+            self._conexao.create_function("frequencia", 1, frequencia, deterministic=True)
             self._migrar()
         except sqlite3.Error as erro:
             raise FalhaNoBanco(f"Não foi possível abrir o banco em {caminho}: {erro}") from erro
@@ -339,6 +400,50 @@ class Banco:
             "semana": [{"dia": dia.isoformat(), "certas": por_dia.get(dia, 0)} for dia in semana],
         }
 
+    # Palavras
+
+    def situacoes(self) -> dict[str, str]:
+        """Como a pessoa vai com cada palavra que já apareceu."""
+        with self._usar() as conexao:
+            linhas = conexao.execute(f"WITH {OCORRENCIAS} SELECT * FROM historico").fetchall()
+            sabidas = conexao.execute("SELECT forma FROM palavras_sabidas").fetchall()
+        # A sabida pode nunca ter aparecido em um erro que conta.
+        return {linha["forma"]: SABIDA for linha in sabidas} | {linha["forma"]: _situacao(linha) for linha in linhas}
+
+    def palavras(self) -> list[dict]:
+        """As palavras já erradas, da mais recente à mais antiga, com a última fala em que aconteceu."""
+        with self._usar() as conexao:
+            linhas = conexao.execute(
+                f"""
+                WITH {OCORRENCIAS},
+                exemplos AS (
+                    SELECT *, ROW_NUMBER() OVER (PARTITION BY forma ORDER BY id DESC) AS do_fim_da_forma FROM erros
+                )
+                SELECT historico.*, exemplos.posicao, esperada, motivo, fala_id, inicio, fim, falas.texto, traducao,
+                       video_id, titulo
+                FROM historico
+                JOIN exemplos ON exemplos.forma = historico.forma AND do_fim_da_forma = 1
+                JOIN falas ON falas.id = fala_id
+                JOIN videos ON videos.id = video_id
+                ORDER BY ultimo_erro DESC, historico.forma
+                """
+            ).fetchall()
+        prontas = []
+        for linha in linhas:
+            dados = dict(linha) | {"situacao": _situacao(linha)}
+            del dados["acertos_seguidos"], dados["sabida"]
+            prontas.append(dados)
+        return prontas
+
+    def marcar_sabida(self, forma: str, sabida: bool) -> None:
+        with self._usar() as conexao:
+            if sabida:
+                conexao.execute(
+                    "INSERT OR IGNORE INTO palavras_sabidas (forma, marcada_em) VALUES (?, ?)", (forma, _agora())
+                )
+            else:
+                conexao.execute("DELETE FROM palavras_sabidas WHERE forma = ?", (forma,))
+
     # Diagnóstico
 
     def desistir(self, rodada: str, desistencia: Desistencia) -> None:
@@ -443,6 +548,10 @@ class Banco:
             {"rodada": rodada},
         ).fetchall()
         return {linha["forma"] for linha in linhas}
+
+
+def _situacao(linha: sqlite3.Row) -> str:
+    return situacao(linha["erros"], linha["acertos_seguidos"], bool(linha["sabida"]))
 
 
 def dias_seguidos(dias: Collection[date], hoje: date) -> int:

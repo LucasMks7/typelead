@@ -31,7 +31,7 @@ O programa abre a página no navegador: http://localhost:8765. Deixe a janela do
 | Modo | O que aparece |
 | --- | --- |
 | Tudo oculto | Uma linha por palavra, com um ponto por letra; cada letra digitada toma o lugar de um ponto |
-| Lacunas | Igual, com metade das palavras, sorteadas, já à mostra |
+| Lacunas | Igual, com metade das palavras já à mostra; as que você erra e as da faixa escolhida somem mais |
 | Texto livre | Um campo vazio, sem saber o tamanho das palavras |
 
 | Tecla | O que faz |
@@ -65,6 +65,12 @@ Resolvida a fala, cada palavra errada mostra o motivo provável:
 | Não sei dizer | Os sinais não bastam |
 
 Se não foi isso, escolha outro motivo na lista; a sua escolha fica salva.
+
+### Suas palavras
+
+A página **Suas palavras** lista o que você errou, com a fala de onde veio. Uma palavra fica como *errando* até ser acertada sem ajuda, *aprendendo* no primeiro acerto e *acertando* no segundo seguido. **Já sei** tira a palavra do estudo.
+
+Digitação não entra na lista. O que você deixou em branco e consertou sem ouvir de novo também não, nem uma palavra muito comum deixada em branco. No modo Lacunas, escolha se quer esconder mais palavras comuns, de uso médio ou raras: nada é certo, só mais provável.
 
 ### O que fica salvo
 
@@ -111,6 +117,7 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | `src/typelead/servidor.py` | Servidor local: a interface e a API, só para este computador |
 | `src/typelead/banco.py` | Guarda vídeos, falas e tentativas no SQLite |
 | `src/typelead/diagnostico.py` | Por que cada palavra foi errada |
+| `src/typelead/palavras.py` | Como vai cada palavra e a chance de ela ser escondida |
 | `src/typelead/links.py` | Reconhece os links do YouTube e o segundo inicial |
 | `src/typelead/youtube.py` | Consulta o vídeo e escolhe a legenda, sem baixar o vídeo |
 | `src/typelead/legendas.py` | Lê SRT, VTT e o formato do YouTube |
@@ -125,8 +132,9 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | `src/typelead/web/js/medidas.js` | Contas puras, testadas fora do navegador |
 | `src/typelead/web/js/app.js` | A tela de prática |
 | `src/typelead/web/js/inicio.js`, `desenho.js`, `sons.js` | A página inicial, as palavras na tela e os sons de acerto e erro |
+| `src/typelead/web/js/palavras.js` | A página das palavras erradas |
 | `src/typelead/web/js/correcao.js` | Compara o digitado com a fala, palavra por palavra |
-| `src/typelead/web/js/lacunas.js` | As palavras escondidas: o sorteio, os pontos e a correção por letra |
+| `src/typelead/web/js/lacunas.js` | As palavras escondidas: a escolha, os pontos e a correção por letra |
 | `src/typelead/web/js/ditado.js`, `pratica.js`, `atalhos.js` | O estado do ditado, o da prática e os atalhos, testados fora do navegador |
 | `src/typelead/web/js/validacao.js` | Página de validação |
 | [docs/player.md](docs/player.md) | O que foi medido no player e as decisões |
@@ -137,4 +145,4 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 
 ## Licença
 
-[MIT](LICENSE). As fontes Red Hat Text e Red Hat Mono, em `src/typelead/web/fontes`, têm licença [SIL OFL 1.1](src/typelead/web/fontes/red-hat-mono-LICENSE.txt). A tradução usa o modelo [opus-mt-tc-big-en-pt](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-pt), da Universidade de Helsinque, sob [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), convertido para o CTranslate2.
+[MIT](LICENSE). As fontes Red Hat Text e Red Hat Mono, em `src/typelead/web/fontes`, têm licença [SIL OFL 1.1](src/typelead/web/fontes/red-hat-mono-LICENSE.txt). A tradução usa o modelo [opus-mt-tc-big-en-pt](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-pt), da Universidade de Helsinque, sob [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), convertido para o CTranslate2. A frequência das palavras vem da biblioteca [wordfreq](https://github.com/rspeer/wordfreq), de Robyn Speer (Apache 2.0, dados [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)), que reúne, entre outras fontes, as listas SUBTLEX, de Marc Brysbaert e outros, disponíveis gratuitamente, o OpenSubtitles (http://www.opensubtitles.org) e o Google Books Ngrams (http://books.google.com/ngrams). Os dados não são copiados neste repositório.

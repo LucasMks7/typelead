@@ -1,6 +1,8 @@
 // Transforma o que os módulos puros calculam em elementos da tela. Nenhum texto
 // vira HTML: legenda e digitação entram só por textContent.
 
+import { separar } from "./correcao.js";
+
 export function criar(tag, textContent = "", mais = {}) {
   return Object.assign(document.createElement(tag), { textContent, ...mais });
 }
@@ -64,13 +66,22 @@ export function desenharPalavra(palavra, { mostrada, cursor, itens, ordem, nova 
   return marca;
 }
 
-const DIAGNOSTICOS = {
+export const DIAGNOSTICOS = {
   digitacao: "digitação",
   escuta: "escuta",
   vocabulario: "vocabulário",
   homofono: "som igual",
   indefinido: "não sei dizer",
 };
+
+/** A fala com uma palavra em destaque. Se a legenda mudou e ela não está lá, só o texto. */
+export function destacar(texto, posicao, esperada) {
+  const palavras = separar(texto);
+  return palavras.flatMap((palavra, i) => {
+    const alvo = i === posicao && palavra.texto === esperada;
+    return [i && !palavra.colada ? " " : "", alvo ? criar("b", palavra.texto) : palavra.texto];
+  });
+}
 
 /** Um erro com o motivo provável, que a pessoa pode trocar. */
 export function desenharErro(erro, aoTrocar) {

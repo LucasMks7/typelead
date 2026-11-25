@@ -413,3 +413,24 @@ def test_a_tentativa_devolve_o_resumo_do_dia(pasta):
 
 def test_fonte_sai_com_o_tipo_certo(cliente):
     assert cliente.get("/fontes/red-hat-mono.woff2").headers["content-type"] == "font/woff2"
+
+
+# Palavras
+
+
+def test_pesos_na_ordem_do_pedido_e_conforme_a_situacao(cliente):
+    pedido = {"palavras": ["the", "Kettle,", "kettle", "&"], "nivel": "avancado"}
+    antes = cliente.post("/api/pesos", json=pedido).json()["pesos"]
+    assert len(antes) == 4 and antes[1] == antes[2] > antes[0]
+    assert cliente.put("/api/palavras", json={"forma": "kettle", "sabida": True}).status_code == 204
+    depois = cliente.post("/api/pesos", json=pedido).json()["pesos"]
+    assert depois[0] == antes[0] and depois[1] < antes[1]
+
+
+def test_nivel_desconhecido_e_recusado(cliente):
+    assert cliente.post("/api/pesos", json={"palavras": ["a"], "nivel": "expert"}).status_code == 422
+
+
+def test_lista_de_palavras_comeca_vazia(cliente):
+    assert cliente.get("/api/palavras").json() == []
+    assert cliente.get("/palavras.html").status_code == 200

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { Lacunas, sortearOcultas } from "../src/typelead/web/js/lacunas.js";
+import { Lacunas, escolherOcultas } from "../src/typelead/web/js/lacunas.js";
 
 function com(texto, fala = "Bring two cups.", ocultas) {
   const l = new Lacunas(fala, ocultas);
@@ -137,20 +137,33 @@ test("o Enter segue os mesmos passos do ditado", () => {
 test("o sorteio esconde metade, pelo menos uma e nunca todas", () => {
   for (let n = 1; n <= 20; n++) {
     for (let vez = 0; vez < 30; vez++) {
-      const ocultas = sortearOcultas(n);
+      const ocultas = escolherOcultas(Array(n).fill(1));
       assert.equal(ocultas.size, Math.ceil(n / 2));
       assert.ok([...ocultas].every((i) => i >= 0 && i < n));
       assert.ok(n === 1 || ocultas.size < n);
     }
   }
-  assert.equal(sortearOcultas(0).size, 0);
+  assert.equal(escolherOcultas([]).size, 0);
 });
 
-test("o sorteio não tem preferência por posição", () => {
+test("com pesos iguais, o sorteio não tem preferência por posição", () => {
   const vezes = Array(6).fill(0);
-  for (let i = 0; i < 6000; i++) for (const k of sortearOcultas(6)) vezes[k] += 1;
+  for (let i = 0; i < 6000; i++) for (const k of escolherOcultas(Array(6).fill(1))) vezes[k] += 1;
   // Esperado: 3000 em cada. O desvio padrão é 39; 250 são mais de seis deles.
   assert.ok(vezes.every((v) => Math.abs(v - 3000) < 250), vezes.join());
+});
+
+test("a palavra de peso maior é escondida mais vezes, e a de peso mínimo, quase nunca", () => {
+  const vezes = [0, 0, 0, 0];
+  for (let i = 0; i < 4000; i++) for (const k of escolherOcultas([0.05, 1, 1, 5])) vezes[k] += 1;
+  assert.ok(vezes[3] > 3500, vezes.join());
+  assert.ok(vezes[0] < 400 && vezes[0] > 0, vezes.join());
+  assert.ok(Math.abs(vezes[1] - vezes[2]) < 250, vezes.join());
+});
+
+test("um peso muito baixo ainda completa a metade", () => {
+  assert.equal(escolherOcultas([0.025, 0.025, 0.025]).size, 2);
+  assert.equal(escolherOcultas([0.025, 0.025], () => 0).size, 1);
 });
 
 test("a posição é a da palavra na fala, e não entre as escondidas", () => {

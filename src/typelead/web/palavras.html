@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Suas palavras — typelead</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d1214'/%3E%3Crect x='5' y='21' width='14' height='4' rx='2' fill='%23ffd84d'/%3E%3Ccircle cx='23' cy='23' r='2' fill='%23ffd84d'/%3E%3Ccircle cx='28' cy='23' r='2' fill='%23ffd84d'/%3E%3C/svg%3E" />
+    <link rel="preload" href="fontes/red-hat-mono.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="estilo.css" />
+    <script type="module" src="js/palavras.js"></script>
+  </head>
+  <body data-tela="palavras">
+    <header class="topo">
+      <a class="marca" href="/" aria-label="typelead, início"><span>type</span><span class="escrita">lead</span></a>
+    </header>
+
+    <main>
+      <p id="aviso" class="aviso" role="status" hidden></p>
+
+      <section class="estante">
+        <h1>Suas palavras</h1>
+        <p id="resumo" class="chamada">Carregando…</p>
+
+        <div id="com-palavras" hidden>
+          <div class="barra">
+            <fieldset class="segmentos">
+              <legend>Mostrar</legend>
+              <label><input type="radio" name="filtro" value="estudar" checked /><span>Para estudar</span></label>
+              <label><input type="radio" name="filtro" value="prontas" /><span>Já sabidas</span></label>
+              <label><input type="radio" name="filtro" value="todas" /><span>Todas</span></label>
+            </fieldset>
+          </div>
+          <p id="vazio" class="chamada" hidden>Nenhuma palavra aqui.</p>
+          <ul id="lista" class="verbetes"></ul>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

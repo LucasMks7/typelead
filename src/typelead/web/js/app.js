@@ -8,7 +8,7 @@ import { criar, desenharErro, desenharPalavra, marcar } from "./desenho.js";
 import { QUANDO_CORRIGIR, Resposta } from "./ditado.js";
 import { Gravacao, pedirSomDaAba } from "./gravador.js";
 import { escreverLetreiro, mostrarRecentes, mostrarResumo, mostrarSemana } from "./inicio.js";
-import { Lacunas, sortearOcultas } from "./lacunas.js";
+import { Lacunas, escolherOcultas } from "./lacunas.js";
 import { Player } from "./player.js";
 import { Pratica, Sequencia, duracaoDaFita, falaEm, fita, proximaQueFalta, relogio } from "./pratica.js";
 import { tocar } from "./sons.js";
@@ -22,7 +22,7 @@ const ORIGENS = {
 
 const MODOS = {
   oculto: (fala) => new Lacunas(fala.texto),
-  lacunas: (fala) => new Lacunas(fala.texto, sortearOcultas(separar(fala.texto).length)),
+  lacunas: (fala) => new Lacunas(fala.texto, escolherOcultas(separar(fala.texto).map(({ texto }) => pesos.get(texto) ?? 1))),
   livre: (fala) => new Resposta(fala.texto),
 };
 
@@ -41,6 +41,7 @@ let video; // o que o servidor disse do vídeo aberto
 let player;
 let pratica;
 let traducaoAberta = false;
+let pesos = new Map(); // a chance de cada palavra ser escondida nas lacunas
 const sequencia = new Sequencia();
 let respostas; // por modo e fala: voltar a uma delas traz o que foi digitado
 // Muda a cada vídeo aberto: uma resposta atrasada do anterior é ignorada.
@@ -101,7 +102,7 @@ async function abrir(link, novo = false, insistindo = false) {
     }
     player = criado;
     avisar("");
-    if (achado.falas.length > 0) praticar(achado);
+    if (achado.falas.length > 0) await praticar(achado);
     else pedirTexto(achado.motivo);
   } catch (erro) {
     if (vez !== abertura) return;
@@ -236,12 +237,15 @@ async function salvarFalas(falas, origem) {
     // A transcrição levou a duração do vídeo: sem salvar, ainda dá para praticar.
     avisar(`As falas não foram salvas. ${erro.message}`, true);
   }
-  if (vez === abertura) praticar({ ...salvo, comeco: video.comeco });
+  if (vez === abertura) await praticar({ ...salvo, comeco: video.comeco });
 }
 
 // A prática
 
-function praticar({ falas, origem, posicao, comeco }) {
+async function praticar({ falas, origem, posicao, comeco }) {
+  const vez = abertura;
+  await pesar(falas);
+  if (vez !== abertura) return;
   // O tempo pedido no link vale mais que o ponto em que a pessoa parou.
   pratica = new Pratica(falas, comeco ? falaEm(falas, comeco) : posicao);
   respostas = { oculto: [], lacunas: [], livre: [] };
@@ -254,6 +258,17 @@ function praticar({ falas, origem, posicao, comeco }) {
   montarFita();
   atualizar();
   $("digitado").focus();
+}
+
+/** Sem os pesos, as lacunas ainda funcionam: todas as palavras com a mesma chance. */
+async function pesar(falas) {
+  const palavras = [...new Set(falas.flatMap(({ texto }) => separar(texto).map((palavra) => palavra.texto)))];
+  try {
+    const recebidos = await enviarJson("/api/pesos", { palavras, nivel: escolhido("nivel") });
+    pesos = new Map(palavras.map((palavra, i) => [palavra, recebidos.pesos[i]]));
+  } catch {
+    pesos = new Map();
+  }
 }
 
 /** Criada na primeira vez e guardada: as palavras sorteadas não mudam ao voltar. */
@@ -660,6 +675,17 @@ function mudarPreferencia({ target }) {
   atualizar();
 }
 
+async function mudarNivel({ target }) {
+  guardar("nivel", target.value);
+  if (!pratica) return;
+  const vez = abertura;
+  await pesar(pratica.falas);
+  if (vez !== abertura || !pratica) return;
+  // O que a pessoa já começou continua como estava.
+  respostas.lacunas = respostas.lacunas.map((resposta) => (resposta?.texto || resposta?.itens ? resposta : undefined));
+  atualizar();
+}
+
 /** Anunciar cada palavra digitada atropelaria o leitor de tela. */
 function anunciarSePuder() {
   $("fala").ariaLive = corrigeDigitando() || escolhido("modo") !== "livre" ? "off" : "polite";
@@ -671,7 +697,8 @@ let comMouse = false;
 document.addEventListener("pointerdown", () => (comMouse = true), true);
 document.addEventListener("keydown", () => (comMouse = false), true);
 for (const opcao of [...escolhas("modo"), ...escolhas("quando")]) opcao.addEventListener("change", mudarPreferencia);
-for (const nome of ["modo", "quando", "velocidade"]) {
+for (const opcao of escolhas("nivel")) opcao.addEventListener("change", mudarNivel);
+for (const nome of ["modo", "nivel", "quando", "velocidade"]) {
   for (const opcao of escolhas(nome)) {
     // O clique no rótulo só passa o foco à opção depois do "change".
     opcao.addEventListener("click", () => comMouse && pratica && $("digitado").focus());
@@ -742,8 +769,9 @@ function guardado(nome) {
   }
 }
 
-for (const [nome, aceitos] of [["modo", Object.keys(MODOS)], ["quando", QUANDO_CORRIGIR]]) {
-  if (aceitos.includes(guardado(nome))) escolher(nome, guardado(nome));
+const aceitos = { modo: Object.keys(MODOS), nivel: ["iniciante", "intermediario", "avancado"], quando: QUANDO_CORRIGIR };
+for (const [nome, valores] of Object.entries(aceitos)) {
+  if (valores.includes(guardado(nome))) escolher(nome, guardado(nome));
 }
 if (guardado("sons") === "false") $("sons").setAttribute("aria-pressed", "false");
 anunciarSePuder();
@@ -751,9 +779,10 @@ anunciarSePuder();
 // Ao abrir a página
 
 async function comecar() {
-  const pedido = new URLSearchParams(location.search).get("v");
+  const endereco = new URLSearchParams(location.search);
+  const pedido = endereco.get("v");
   if (pedido) {
-    const link = `https://www.youtube.com/watch?v=${pedido}`;
+    const link = `https://www.youtube.com/watch?v=${pedido}${endereco.has("t") ? `&t=${endereco.get("t")}` : ""}`;
     $("link").value = link;
     abrir(link);
   } else escreverLetreiro();

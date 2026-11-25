@@ -47,6 +47,10 @@
           </form>
         </div>
 
+        <nav class="caminhos" aria-label="Estudar">
+          <a class="botao" href="palavras.html">Suas palavras</a>
+        </nav>
+
         <div id="continuar" hidden>
           <section class="semana" aria-labelledby="titulo-semana">
             <h2 id="titulo-semana"></h2>
@@ -129,6 +133,12 @@
               <label><input type="radio" name="modo" value="oculto" checked /><span>Tudo oculto</span></label>
               <label><input type="radio" name="modo" value="lacunas" /><span>Lacunas</span></label>
               <label><input type="radio" name="modo" value="livre" /><span>Texto livre</span></label>
+            </fieldset>
+            <fieldset class="segmentos nivel">
+              <legend>Esconder mais</legend>
+              <label title="Nas lacunas, esconde mais as palavras comuns"><input type="radio" name="nivel" value="iniciante" /><span>Palavras comuns</span></label>
+              <label title="Nas lacunas, esconde mais as palavras de uso médio"><input type="radio" name="nivel" value="intermediario" checked /><span>De uso médio</span></label>
+              <label title="Nas lacunas, esconde mais as palavras raras"><input type="radio" name="nivel" value="avancado" /><span>Raras</span></label>
             </fieldset>
             <fieldset class="segmentos">
               <legend>Corrigir</legend>

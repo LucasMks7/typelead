@@ -13,15 +13,16 @@ const letrasDe = (texto) => [...texto].filter((sinal) => LETRA.test(sinal));
 
 const simples = (letra) => letra.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
-/** Sorteia quais palavras esconder: metade, nunca nenhuma nem, se puder, todas. */
-export function sortearOcultas(quantas, sorteio = Math.random) {
-  const ordem = Array.from({ length: quantas }, (_, i) => i);
-  // Embaralhamento de Fisher-Yates: toda ordem tem a mesma chance.
-  for (let i = quantas - 1; i > 0; i--) {
-    const j = Math.floor(sorteio() * (i + 1));
-    [ordem[i], ordem[j]] = [ordem[j], ordem[i]];
-  }
-  return new Set(ordem.slice(0, Math.ceil(quantas / 2)));
+/**
+ * Escolhe quais palavras esconder: metade, nunca nenhuma nem, se puder, todas. Quanto
+ * maior o peso, maior a chance; nenhuma é certa, para a mesma fala variar.
+ */
+export function escolherOcultas(pesos, sorteio = Math.random) {
+  // Sorteio ponderado sem reposição, de Efraimidis e Spirakis: cada palavra recebe uma
+  // nota ao acaso, que o peso empurra para perto de 1, e as maiores ficam.
+  const notas = pesos.map((peso, i) => ({ i, nota: sorteio() ** (1 / peso) }));
+  notas.sort((a, b) => b.nota - a.nota);
+  return new Set(notas.slice(0, Math.ceil(pesos.length / 2)).map(({ i }) => i));
 }
 
 export class Lacunas extends Resposta {

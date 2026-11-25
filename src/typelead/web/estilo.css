@@ -327,6 +327,86 @@ svg .corte {
   overflow-wrap: anywhere;
 }
 
+/* Palavras */
+
+.estante {
+  width: 100%;
+  max-width: 52rem;
+  margin: 2rem auto 3rem;
+}
+
+.estante h1 {
+  margin: 0;
+  font: 600 clamp(1.8rem, 5vw, 2.8rem) / 1.2 var(--letras);
+  letter-spacing: -0.03em;
+}
+
+.estante .barra {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.verbetes {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.verbete {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--linha);
+  border-radius: 14px;
+  background: var(--painel);
+}
+
+.verbete > * {
+  grid-column: 1;
+  margin: 0;
+}
+
+.verbete > button {
+  grid-area: 1 / 2 / span 4;
+  align-self: center;
+}
+
+.cabeca {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cabeca strong {
+  font: 600 1.35rem var(--letras);
+}
+
+.verbete[data-situacao="errando"] .etiqueta {
+  color: var(--erro);
+}
+
+.verbete:is([data-situacao="conhecida"], [data-situacao="sabida"]) .etiqueta {
+  color: var(--certo);
+}
+
+.exemplo b {
+  color: var(--destaque);
+}
+
+.pe {
+  font-size: 0.92rem;
+  color: var(--tinta-fraca);
+}
+
+.pe a {
+  color: inherit;
+}
+
 /* Início */
 
 .inicio {
@@ -367,6 +447,13 @@ svg .corte {
   padding-inline: 1.2rem;
   font-size: 1.1rem;
   border-radius: 14px;
+}
+
+.caminhos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
 }
 
 #continuar {
@@ -897,6 +984,11 @@ progress {
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
+}
+
+/* O nível só muda o que as lacunas escondem. */
+.ajustes:not(:has([value="lacunas"]:checked)) .nivel {
+  display: none;
 }
 
 .segmentos label {
