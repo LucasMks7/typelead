@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from . import youtube
 from .banco import Banco, FalhaNoBanco, Item, Tentativa, caminho_padrao
+from .diagnostico import Desistencia
 from .divisao import dividir
 from .legendas import TAMANHO_MAXIMO as LEGENDA_MAXIMA
 from .legendas import Fala, LegendaInvalida, Palavra, ler_arquivo
@@ -85,9 +86,22 @@ class ItemRecebido(BaseModel):
     digitada: str = Field(max_length=2000)
 
 
+RODADA = r"^[0-9a-f-]{36}$"
+
+
+class DesistenciaRecebida(BaseModel):
+    repeticoes: int = Field(ge=0, le=100_000)
+    velocidade: float = Field(gt=0, le=2)
+    traduziu: bool
+
+
+class DiagnosticoRecebido(BaseModel):
+    tipo: Literal["digitacao", "escuta", "vocabulario", "homofono", "indefinido"]
+
+
 class TentativaRecebida(BaseModel):
     fala_id: int
-    rodada: str = Field(pattern=r"^[0-9a-f-]{36}$")
+    rodada: str = Field(pattern=RODADA)
     modo: Literal["oculto", "lacunas", "livre"]
     corrigir: Literal["enter", "digitando"]
     texto: str = Field(max_length=2000)
@@ -220,7 +234,17 @@ def criar_app(
         numero = banco.salvar_tentativa(Tentativa(**dados))
         if numero is None:
             raise HTTPException(404, "Esta fala não está salva.")
-        return {"id": numero}
+        return {"id": numero, "erros": banco.diagnosticar(recebida.rodada)}
+
+    @app.put("/api/rodadas/{rodada}/desistencia")
+    def desistir(rodada: Annotated[str, NoCaminho(pattern=RODADA)], recebida: DesistenciaRecebida):
+        banco.desistir(rodada, Desistencia(**recebida.model_dump()))
+        return {"erros": banco.diagnosticar(rodada)}
+
+    @app.put("/api/erros/{numero}/diagnostico", status_code=204)
+    def corrigir_diagnostico(numero: int, recebido: DiagnosticoRecebido):
+        if not banco.corrigir_diagnostico(numero, recebido.tipo):
+            raise HTTPException(404, "Este erro não está salvo.")
 
     @app.post("/api/legendas")
     async def abrir_legenda(request: Request):

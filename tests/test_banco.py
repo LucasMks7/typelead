@@ -4,6 +4,7 @@ import threading
 import pytest
 
 from typelead import banco as modulo
+from typelead.diagnostico import DIGITACAO, ESCUTA, INDEFINIDO, VOCABULARIO, Desistencia
 from typelead.banco import Banco, FalhaNoBanco, Item, Tentativa, caminho_padrao
 from typelead.legendas import Fala, Palavra
 
@@ -218,3 +219,77 @@ def test_cada_migracao_preserva_os_dados(tmp_path, monkeypatch):
     video = novo.abrir_video("abcdefghijk")
     assert (video["titulo"], video["falas"][0]["acertada"], video["falas"][0]["traducao"]) == ("Chá", True, None)
     novo.fechar()
+
+
+# Diagnóstico
+
+
+def responder(banco, fala, *itens, rodada="r1", **mudancas):
+    banco.salvar_tentativa(tentativa(fala, rodada=rodada, itens=tuple(Item(*item) for item in itens), **mudancas))
+    return banco.diagnosticar(rodada)
+
+
+def test_o_diagnostico_muda_com_o_que_vem_depois(banco):
+    salvar(banco)
+    fala = ids(banco)[0]
+    errado = responder(banco, fala, ("certa", 0, "The", "the"), ("trocada", 1, "kettle.", "castle"), repeticoes=1)
+    assert [(e["esperada"], e["digitada"], e["diagnostico"]) for e in errado] == [("kettle.", "castle", None)]
+    certo = responder(banco, fala, ("certa", 0, "The", "the"), ("certa", 1, "kettle.", "kettle"), repeticoes=3)
+    assert [e["diagnostico"] for e in certo] == [ESCUTA]
+
+
+def test_palavra_acertada_em_outra_rodada_e_conhecida(banco):
+    salvar(banco)
+    fala = ids(banco)[0]
+    responder(banco, fala, ("certa", 1, "Kettle!", "kettle"), rodada="antes")
+    erros = responder(banco, fala, ("trocada", 1, "kettle.", "ketle"), rodada="depois")
+    assert [e["diagnostico"] for e in erros] == [DIGITACAO]
+
+
+def test_palavra_acertada_com_ajuda_nao_e_conhecida(banco):
+    salvar(banco)
+    fala = ids(banco)[0]
+    responder(banco, fala, ("certa", 1, "kettle.", "kettle"), rodada="antes", com_ajuda=True)
+    erros = responder(banco, fala, ("trocada", 1, "kettle.", "ketle"), rodada="depois")
+    assert [e["diagnostico"] for e in erros] == [None]
+
+
+def test_desistiu(banco):
+    salvar(banco)
+    fala = ids(banco)[0]
+    responder(banco, fala, ("faltou", 1, "kettle.", ""))
+    banco.desistir("r1", Desistencia(4, 0.5, False))
+    # Vale a primeira vez.
+    banco.desistir("r1", Desistencia(1, 1.0, False))
+    assert [e["diagnostico"] for e in banco.diagnosticar("r1")] == [VOCABULARIO]
+
+
+def test_desistir_sem_ter_tentado_nao_registra_nada(banco):
+    banco.desistir("r1", Desistencia(1, 1.0, False))
+    assert banco.diagnosticar("r1") == []
+    assert banco._conexao.execute("SELECT COUNT(*) FROM desistencias").fetchone()[0] == 0
+
+
+def test_contracao_vale_pelas_palavras_que_abre(banco):
+    salvar(banco)
+    fala = ids(banco)[0]
+    responder(banco, fala, ("faltou", 2, "not", ""), repeticoes=1)
+    erros = responder(banco, fala, ("certa", 1, "do not", "don't"), repeticoes=2)
+    assert [e["diagnostico"] for e in erros] == [ESCUTA]
+
+
+def test_um_erro_por_palavra_o_ultimo_na_ordem_da_fala(banco):
+    salvar(banco)
+    fala = ids(banco)[0]
+    responder(banco, fala, ("trocada", 0, "The", "a"), ("trocada", 1, "kettle.", "castle"))
+    erros = responder(banco, fala, ("trocada", 1, "kettle.", "cattle"), ("sobrou", 2, "", "x"), ("certa", 0, "The", "the"))
+    assert [(e["posicao"], e["digitada"], e["diagnostico"]) for e in erros] == [(0, "a", INDEFINIDO), (1, "cattle", None)]
+
+
+def test_a_pessoa_discorda(banco):
+    salvar(banco)
+    erro = responder(banco, ids(banco)[0], ("certa", 0, "The", "the"), ("faltou", 1, "kettle.", ""))[0]
+    assert banco.corrigir_diagnostico(erro["id"], VOCABULARIO)
+    assert banco.diagnosticar("r1")[0]["corrigido"] == VOCABULARIO
+    assert not banco.corrigir_diagnostico(erro["id"] - 1, VOCABULARIO)
+    assert not banco.corrigir_diagnostico(999, VOCABULARIO)

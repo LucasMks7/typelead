@@ -15,6 +15,9 @@ export class Resposta {
   #desde = null;
   #traduziu = false;
 
+  /** Os erros da rodada, com o diagnóstico, como o servidor os devolveu. */
+  erros = [];
+
   /** Une as tentativas seguidas na mesma fala. */
   rodada = crypto.randomUUID();
 

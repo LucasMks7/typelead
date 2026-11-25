@@ -9,9 +9,11 @@ from collections.abc import Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from itertools import groupby
 from pathlib import Path
 
 from .alinhamento import normalizar
+from .diagnostico import Desistencia, Erro, Passo, diagnosticar
 from .legendas import Fala, Palavra
 
 # Cada item leva o banco de uma versão à seguinte. Um item publicado nunca muda:
@@ -77,6 +79,19 @@ MIGRACOES = (
     ALTER TABLE falas ADD COLUMN traducao TEXT;
     -- A pessoa viu a tradução antes de responder.
     ALTER TABLE tentativas ADD COLUMN traduziu INTEGER NOT NULL DEFAULT 0;
+    """,
+    """
+    ALTER TABLE itens ADD COLUMN diagnostico TEXT;
+    -- O que a pessoa disse que foi, quando discordou.
+    ALTER TABLE itens ADD COLUMN corrigido TEXT;
+    -- A pessoa pediu a resposta. Guarda as medidas de quando ela pediu.
+    CREATE TABLE desistencias (
+        rodada TEXT PRIMARY KEY,
+        repeticoes INTEGER NOT NULL,
+        velocidade REAL NOT NULL,
+        traduziu INTEGER NOT NULL,
+        criada_em TEXT NOT NULL
+    );
     """,
 )
 
@@ -303,6 +318,111 @@ class Banco:
                 ],
             )
         return numero
+
+    # Diagnóstico
+
+    def desistir(self, rodada: str, desistencia: Desistencia) -> None:
+        """Registra que a pessoa viu a resposta. Vale a primeira vez em cada rodada."""
+        with self._usar() as conexao:
+            conexao.execute(
+                """
+                INSERT OR IGNORE INTO desistencias (rodada, repeticoes, velocidade, traduziu, criada_em)
+                SELECT ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM tentativas WHERE rodada = ?)
+                """,
+                (rodada, desistencia.repeticoes, desistencia.velocidade, desistencia.traduziu, _agora(), rodada),
+            )
+
+    def diagnosticar(self, rodada: str) -> list[dict]:
+        """Reavalia a rodada. Devolve o último erro de cada palavra, na ordem da fala."""
+        with self._usar() as conexao:
+            passos = self._passos(conexao, rodada)
+            linha = conexao.execute(
+                "SELECT repeticoes, velocidade, traduziu FROM desistencias WHERE rodada = ?", (rodada,)
+            ).fetchone()
+            desistencia = Desistencia(linha["repeticoes"], linha["velocidade"], bool(linha["traduziu"])) if linha else None
+            diagnosticos = diagnosticar(passos, self._conhecidas(conexao, rodada), desistencia)
+            conexao.executemany(
+                "UPDATE itens SET diagnostico = ? WHERE id = ?",
+                [(tipo, numero) for numero, tipo in diagnosticos.items()],
+            )
+            erros = conexao.execute(
+                """
+                SELECT itens.id, posicao, esperada, digitada, diagnostico, corrigido
+                FROM itens JOIN tentativas ON tentativas.id = tentativa_id
+                WHERE rodada = ? AND tipo IN ('trocada', 'faltou')
+                ORDER BY itens.id
+                """,
+                (rodada,),
+            ).fetchall()
+        ultimos = {erro["posicao"]: dict(erro) for erro in erros}
+        return [ultimos[posicao] for posicao in sorted(ultimos)]
+
+    def corrigir_diagnostico(self, numero: int, tipo: str) -> bool:
+        """A pessoa discorda. Devolve se o erro existe."""
+        with self._usar() as conexao:
+            return (
+                conexao.execute(
+                    "UPDATE itens SET corrigido = ? WHERE id = ? AND tipo IN ('trocada', 'faltou')", (tipo, numero)
+                ).rowcount
+                > 0
+            )
+
+    @staticmethod
+    def _passos(conexao: sqlite3.Connection, rodada: str) -> list[Passo]:
+        linhas = conexao.execute(
+            """
+            SELECT tentativa_id, repeticoes, velocidade, traduziu, com_ajuda,
+                   itens.id, tipo, posicao, esperada, digitada
+            FROM tentativas JOIN itens ON tentativa_id = tentativas.id
+            WHERE rodada = ?
+            ORDER BY tentativa_id, itens.id
+            """,
+            (rodada,),
+        ).fetchall()
+        passos = []
+        for _, grupo in groupby(linhas, key=lambda linha: linha["tentativa_id"]):
+            itens = list(grupo)
+            certas = {
+                # Uma contração pode valer por duas ou três palavras da fala.
+                item["posicao"] + k
+                for item in itens
+                if item["tipo"] == "certa"
+                for k in range(len(item["esperada"].split()))
+            }
+            erros = tuple(
+                Erro(item["id"], item["posicao"], item["esperada"], item["digitada"])
+                for item in itens
+                if item["tipo"] in {"trocada", "faltou"}
+            )
+            primeiro = itens[0]
+            passos.append(
+                Passo(
+                    primeiro["repeticoes"],
+                    primeiro["velocidade"],
+                    bool(primeiro["traduziu"]),
+                    bool(primeiro["com_ajuda"]),
+                    frozenset(certas),
+                    erros,
+                )
+            )
+        return passos
+
+    @staticmethod
+    def _conhecidas(conexao: sqlite3.Connection, rodada: str) -> set[str]:
+        """Das palavras erradas na rodada, as que já foram acertadas em outra, sem ajuda."""
+        linhas = conexao.execute(
+            """
+            SELECT DISTINCT acertos.forma
+            FROM itens AS acertos JOIN tentativas ON tentativas.id = acertos.tentativa_id
+            WHERE acertos.tipo = 'certa' AND NOT com_ajuda AND rodada <> :rodada
+              AND acertos.forma IN (
+                  SELECT itens.forma FROM itens JOIN tentativas ON tentativas.id = tentativa_id
+                  WHERE rodada = :rodada AND tipo IN ('trocada', 'faltou')
+              )
+            """,
+            {"rodada": rodada},
+        ).fetchall()
+        return {linha["forma"] for linha in linhas}
 
 
 def _agora() -> str:

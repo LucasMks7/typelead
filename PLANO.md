@@ -80,20 +80,22 @@ A API oficial do YouTube não resolve a legenda: ela só permite baixá-la a que
 | `falas` | Início, fim, texto, tradução e ordem dentro do vídeo; trocar a legenda cria outra versão |
 | `palavras` | Forma base, frequência no inglês e situação para o usuário |
 | `tentativas` | Uma resposta: modo, texto digitado, repetições, velocidade, dicas e duração |
-| `itens` | Cada palavra de uma tentativa: a esperada, a digitada e se estava certa |
+| `itens` | Cada palavra de uma tentativa: a esperada, a digitada, se estava certa e o diagnóstico |
+| `desistencias` | Quando a pessoa pediu a resposta |
 | `cartoes` | Estado da revisão espaçada de cada palavra ou fala |
 
 ## Como descobrir o tipo do erro
 
 | Sinal | Diagnóstico |
 | --- | --- |
-| Diferença de uma letra, ou tecla vizinha, em palavra já acertada antes | Digitação |
-| Acertou depois de reduzir a velocidade ou repetir | Escuta |
-| Não acertou nem devagar, ou pediu a tradução | Vocabulário |
+| Diferença de uma letra, ou tecla vizinha, em palavra já acertada antes ou consertada sem ouvir de novo | Digitação |
+| Acertou depois de reduzir a velocidade ou repetir, ou desistiu de palavra já acertada antes | Escuta |
+| Desistiu de palavra nova depois de ouvir devagar ou de pedir a tradução | Vocabulário |
 | Trocou por palavra de som igual (*their* e *there*) | Homófono |
 | `don't` no lugar de `do not`, pontuação ou maiúscula | Não conta como erro |
+| Nenhum dos sinais | Indefinido, em vez de um palpite |
 
-São regras simples, que podem ser explicadas e testadas. A medida de sucesso é quantas vezes o Lucas discorda do diagnóstico.
+São regras simples, que podem ser explicadas e testadas. A medida de sucesso é quantas vezes o Lucas discorda do diagnóstico; cada discordância fica salva em `itens.corrigido`.
 
 ## Riscos
 

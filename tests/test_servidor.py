@@ -385,3 +385,20 @@ def test_tradutor_que_nao_carrega_explica_o_motivo(pasta):
     fala = cliente.post("/api/videos", json=LINK).json()["falas"][0]
     resposta = cliente.post(f"/api/falas/{fala['id']}/traducao")
     assert resposta.status_code == 503 and "sem internet" in resposta.json()["detail"]
+
+
+def test_diagnostico_da_tentativa_a_correcao_pela_pessoa(pasta):
+    cliente = com_busca(pasta, ACHADO)
+    fala = cliente.post("/api/videos", json=LINK).json()["falas"][0]
+    errada = {"tipo": "trocada", "posicao": 1, "esperada": "kettle", "digitada": "castle"}
+    resposta = cliente.post("/api/tentativas", json=TENTATIVA | {"fala_id": fala["id"], "itens": [errada]}).json()
+    assert [erro["diagnostico"] for erro in resposta["erros"]] == [None]
+    rodada = TENTATIVA["rodada"]
+    medidas = {"repeticoes": 3, "velocidade": 0.5, "traduziu": False}
+    erros = cliente.put(f"/api/rodadas/{rodada}/desistencia", json=medidas).json()["erros"]
+    assert [erro["diagnostico"] for erro in erros] == ["vocabulario"]
+    caminho = f"/api/erros/{erros[0]['id']}/diagnostico"
+    assert cliente.put(caminho, json={"tipo": "escuta"}).status_code == 204
+    assert cliente.put(caminho, json={"tipo": "outro"}).status_code == 422
+    assert cliente.put("/api/erros/999/diagnostico", json={"tipo": "escuta"}).status_code == 404
+    assert cliente.put("/api/rodadas/x/desistencia", json=medidas).status_code == 422

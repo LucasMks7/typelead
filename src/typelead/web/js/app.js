@@ -22,6 +22,14 @@ const MODOS = {
   livre: (fala) => new Resposta(fala.texto),
 };
 
+const DIAGNOSTICOS = {
+  digitacao: "digitação",
+  escuta: "escuta",
+  vocabulario: "vocabulário",
+  homofono: "som igual",
+  indefinido: "não sei dizer",
+};
+
 const $ = (id) => document.getElementById(id);
 
 let video; // o que o servidor disse do vídeo aberto
@@ -282,6 +290,7 @@ function atualizarFala() {
   const { mostrada } = pratica;
   $("placar").textContent = placar(resposta, mostrada);
   $("placar").classList.toggle("certo", resposta.acertou);
+  mostrarErros(resposta);
 
   const comLacunas = resposta instanceof Lacunas;
   $("fala").classList.toggle("com-lacunas", comLacunas && !resposta.semPalavras);
@@ -402,7 +411,11 @@ const ACOES = {
   repetir: ouvir,
   mostrar: () => {
     pratica.mostrar(!pratica.mostrada);
-    if (pratica.mostrada) respostaAtual().mostrou();
+    const resposta = respostaAtual();
+    if (pratica.mostrada) {
+      resposta.mostrou();
+      if (resposta.itens && !resposta.acertou) salvarDesistencia(resposta);
+    }
     atualizar();
   },
   conferir: () => {
@@ -461,7 +474,50 @@ function salvarTentativa(resposta) {
     ...resposta.medidas(performance.now()),
     itens: resposta.itens.map(({ tipo, posicao, esperada, digitada }) => ({ tipo, posicao, esperada, digitada })),
   };
-  salvar(() => enviarJson("/api/tentativas", tentativa));
+  receberErros(resposta, () => enviarJson("/api/tentativas", tentativa));
+}
+
+function salvarDesistencia(resposta) {
+  if (pratica.fala.id === undefined) return;
+  const { repeticoes, velocidade, traduziu } = resposta.medidas(performance.now());
+  receberErros(resposta, () =>
+    enviarJson(`/api/rodadas/${resposta.rodada}/desistencia`, { repeticoes, velocidade, traduziu }, "PUT"),
+  );
+}
+
+async function receberErros(resposta, pedido) {
+  const salvo = await salvar(pedido);
+  if (!salvo) return;
+  resposta.erros = salvo.erros;
+  if (pratica && respostaAtual() === resposta) mostrarErros(resposta);
+}
+
+/** Por que errou cada palavra; só com a fala resolvida, para não entregar a resposta. */
+function mostrarErros(resposta) {
+  const resolvida = resposta.acertou || (pratica.mostrada && resposta.conferida);
+  const erros = resolvida ? resposta.erros.filter((erro) => erro.diagnostico) : [];
+  $("motivos").hidden = erros.length === 0;
+  $("erros").replaceChildren(...erros.map(desenharErro));
+}
+
+function desenharErro(erro) {
+  const item = document.createElement("li");
+  const palavras = Object.assign(document.createElement("span"), { lang: "en" });
+  if (erro.digitada) palavras.append(Object.assign(document.createElement("s"), { textContent: erro.digitada }), " ");
+  palavras.append(erro.esperada);
+  const escolha = document.createElement("select");
+  escolha.setAttribute("aria-label", `Por que errei ${erro.esperada}`);
+  escolha.title = "Se não foi isso, escolha o motivo";
+  for (const [tipo, nome] of Object.entries(DIAGNOSTICOS)) escolha.append(new Option(nome, tipo));
+  escolha.value = erro.corrigido ?? erro.diagnostico;
+  escolha.addEventListener("change", () => {
+    const tipo = escolha.value;
+    erro.corrigido = tipo;
+    salvar(() => enviarJson(`/api/erros/${erro.id}/diagnostico`, { tipo }, "PUT"));
+    if (comMouse) $("digitado").focus();
+  });
+  item.append(palavras, escolha);
+  return item;
 }
 
 /** Muda de fala e já toca a nova. */

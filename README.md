@@ -47,6 +47,20 @@ Com palavras escondidas, o espaço passa para a próxima e o Backspace, em uma p
 
 Em **Corrigir**, dá para escolher **enquanto digito**. Com palavras escondidas, a correção é letra por letra; no texto livre, cada palavra é corrigida ao apertar espaço, sem revelar a resposta.
 
+### Por que errei
+
+Resolvida a fala, cada palavra errada mostra o motivo provável:
+
+| Motivo | Quando |
+| --- | --- |
+| Digitação | Uma letra trocada, a mais, a menos ou invertida, em palavra que você já acertou antes ou consertou sem ouvir de novo; ou só letras invertidas |
+| Escuta | Acertou depois de ouvir de novo ou mais devagar; ou errou uma palavra que já tinha acertado |
+| Vocabulário | Viu a resposta depois de ouvir devagar ou de ler a tradução, e nunca tinha acertado a palavra |
+| Som igual | Trocou por outra de som igual ou quase, como *their* e *there* |
+| Não sei dizer | Os sinais não bastam |
+
+Se não foi isso, escolha outro motivo na lista; a sua escolha fica salva.
+
 ### O que fica salvo
 
 As falas de cada vídeo, o ponto em que você parou e cada tentativa, com o que foi digitado, quantas vezes ouviu e em que velocidade. Fica tudo em um arquivo SQLite, só neste computador: `%APPDATA%\typelead\typelead.db` no Windows e `~/.local/share/typelead/typelead.db` no Linux. O som e o vídeo não são guardados. Um vídeo salvo abre sem consultar a legenda de novo; o player continua precisando da internet.
@@ -91,6 +105,7 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | --- | --- |
 | `src/typelead/servidor.py` | Servidor local: a interface e a API, só para este computador |
 | `src/typelead/banco.py` | Guarda vídeos, falas e tentativas no SQLite |
+| `src/typelead/diagnostico.py` | Por que cada palavra foi errada |
 | `src/typelead/links.py` | Reconhece os links do YouTube e o segundo inicial |
 | `src/typelead/youtube.py` | Consulta o vídeo e escolhe a legenda, sem baixar o vídeo |
 | `src/typelead/legendas.py` | Lê SRT, VTT e o formato do YouTube |
