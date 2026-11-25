@@ -20,7 +20,7 @@ typelead
 
 A primeira transcrição baixa o modelo: 1,5 GB com placa da NVIDIA ou 500 MB sem. A primeira tradução baixa outro, de 236 MB.
 
-Depois, abra http://localhost:8765. O servidor só atende este computador. Para usar outra porta: `typelead --porta 9000`.
+O programa abre a página no navegador: http://localhost:8765. Deixe a janela do terminal aberta enquanto pratica. Se ela for fechada, a página avisa e espera; quando o programa volta, ela se reconecta e salva o que faltou, desde que a aba continue aberta. O servidor só atende este computador. Para usar outra porta, `typelead --porta 9000`; para não abrir o navegador, `--sem-navegador`.
 
 ## Como usar
 
@@ -119,6 +119,7 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | `src/typelead/transcricao.py` | Transcreve o som gravado, com o tempo de cada palavra |
 | `src/typelead/traducao.py` | Traduz uma fala, neste computador |
 | `src/typelead/transcricoes.py` | Fila de transcrições em segundo plano |
+| `src/typelead/web/js/api.js`, `fechado.js` | Os pedidos ao servidor e o que fazer quando ele está fechado |
 | `src/typelead/web/js/gravador.js` | Grava o som da aba |
 | `src/typelead/web/js/player.js` | Conversa com o player do YouTube e toca um trecho exato |
 | `src/typelead/web/js/medidas.js` | Contas puras, testadas fora do navegador |

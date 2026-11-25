@@ -311,6 +311,22 @@ svg .corte {
   border-color: var(--erro);
 }
 
+.fechado p {
+  margin: 0;
+}
+
+.comando {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.comando code {
+  font-family: var(--letras);
+  overflow-wrap: anywhere;
+}
+
 /* Início */
 
 .inicio {

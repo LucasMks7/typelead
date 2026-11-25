@@ -1,9 +1,14 @@
 """Servidor local: entrega a interface e a API ao navegador, só neste computador."""
 
 import argparse
+import http.client
+import json
 import mimetypes
+import socket
 import sqlite3
 import sys
+import urllib.request
+import webbrowser
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
@@ -33,6 +38,7 @@ ENDERECO = "127.0.0.1"
 PORTA_PADRAO = 8765
 # O YouTube recusa alguns vídeos em uma página aberta pelo número (docs/player.md).
 NOME = "localhost"
+NOME_DO_PROGRAMA = "typelead"
 NOMES_ACEITOS = {ENDERECO, NOME}
 
 # O YouTube recusa o pedido feito pelo programa, mas o player pode tocar o vídeo
@@ -154,6 +160,11 @@ def criar_app(
     @app.exception_handler(sqlite3.Error)
     async def banco_falhou(_: Request, erro: sqlite3.Error):
         return JSONResponse({"detail": f"Não foi possível salvar: {erro}"}, status_code=500)
+
+    @app.get("/api/programa")
+    def apresentar():
+        """Diz quem atende aqui e como abrir de novo, para a página saber o que mostrar."""
+        return {"programa": NOME_DO_PROGRAMA, "comando": sys.argv[0]}
 
     @app.get("/api/videos")
     def listar_videos():
@@ -343,10 +354,47 @@ def _origem_aceita(request: Request) -> bool:
     return partes.scheme == "http" and partes.netloc == request.headers.get("host")
 
 
+def ja_esta_aberto(porta: int) -> bool:
+    """Quem ocupa a porta é outro typelead?"""
+    # Um proxy configurado no sistema não conhece este computador.
+    abridor = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with abridor.open(f"http://{ENDERECO}:{porta}/api/programa", timeout=3) as resposta:
+            dados = json.loads(resposta.read(10_000))
+    except (OSError, ValueError, http.client.HTTPException):
+        return False
+    return isinstance(dados, dict) and dados.get("programa") == NOME_DO_PROGRAMA
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="typelead", description="Abre o typelead.")
     parser.add_argument("--porta", type=int, default=PORTA_PADRAO)
-    porta = parser.parse_args().porta
+    parser.add_argument("--sem-navegador", action="store_true", help="não abre a página ao iniciar")
+    argumentos = parser.parse_args()
+    porta, abrir_pagina = argumentos.porta, not argumentos.sem_navegador
+    endereco = f"http://{NOME}:{porta}"
+
+    # A porta é ocupada antes de tudo: quem chega segundo não mexe no banco, e a
+    # página aberta abaixo já encontra quem a atenda.
+    tomada = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        if sys.platform != "win32":
+            # No Windows, esta opção deixaria dois programas na mesma porta.
+            tomada.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        tomada.bind((ENDERECO, porta))
+        tomada.listen()
+    except (OSError, OverflowError) as erro:
+        tomada.close()
+        if ja_esta_aberto(porta):
+            print(f"O typelead já está aberto em {endereco}", flush=True)
+            if abrir_pagina:
+                webbrowser.open(endereco)
+            return 0
+        print(
+            f"Não foi possível usar a porta {porta}: {erro}\nTente outra, por exemplo: typelead --porta 9000",
+            file=sys.stderr,
+        )
+        return 1
 
     # Importado aqui porque só o programa de verdade precisa dele.
     import uvicorn
@@ -354,13 +402,20 @@ def main() -> int:
     try:
         banco = Banco(caminho_padrao())
     except (FalhaNoBanco, OSError) as erro:
+        tomada.close()
         print(erro, file=sys.stderr)
         return 1
     transcricoes = Transcricoes()
-    print(f"typelead em http://{NOME}:{porta} (Ctrl+C encerra)", flush=True)
+    print(f"typelead em {endereco}. Deixe esta janela aberta; Ctrl+C encerra.", flush=True)
+    if abrir_pagina:
+        webbrowser.open(endereco)
+    servidor = uvicorn.Server(uvicorn.Config(criar_app(transcricoes, banco=banco), log_level="warning"))
     try:
-        uvicorn.run(criar_app(transcricoes, banco=banco), host=ENDERECO, port=porta, log_level="warning")
+        servidor.run(sockets=[tomada])
+    except KeyboardInterrupt:
+        pass
     finally:
+        tomada.close()
         transcricoes.encerrar()
         banco.fechar()
     return 0

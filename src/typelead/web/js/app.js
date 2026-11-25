@@ -1,7 +1,8 @@
 // A tela: abre o vídeo, consegue o texto e conduz a prática.
 
-import { enviarJson, pedir, transcrever } from "./api.js";
+import { SemServidor, ateVoltar, enviarJson, insistir, pedir, transcrever } from "./api.js";
 import { acaoDaTecla } from "./atalhos.js";
+import "./fechado.js";
 import { separar } from "./correcao.js";
 import { criar, desenharErro, desenharPalavra, marcar } from "./desenho.js";
 import { QUANDO_CORRIGIR, Resposta } from "./ditado.js";
@@ -61,13 +62,14 @@ const falhou = (erro) => avisar(erro.message, true);
 let salvando = Promise.resolve();
 
 function salvar(pedido) {
-  salvando = salvando.then(pedido).catch((erro) => avisar(`Isto não foi salvo. ${erro.message}`, true));
+  // Com o programa fechado, a fila espera: nada do que foi praticado se perde.
+  salvando = salvando.then(() => insistir(pedido)).catch((erro) => avisar(`Isto não foi salvo. ${erro.message}`, true));
   return salvando;
 }
 
 // Abrir um vídeo
 
-async function abrir(link, novo = false) {
+async function abrir(link, novo = false, insistindo = false) {
   abertura += 1;
   const vez = abertura;
   limpar();
@@ -104,7 +106,11 @@ async function abrir(link, novo = false) {
   } catch (erro) {
     if (vez !== abertura) return;
     limpar();
-    falhou(erro);
+    // Uma vez só: se for o próprio vídeo que derruba o programa, não adianta repetir.
+    if (erro instanceof SemServidor && !insistindo) {
+      avisar("O vídeo será aberto assim que o typelead voltar.");
+      ateVoltar().then(() => vez === abertura && abrir(link, novo, true));
+    } else falhou(erro);
   } finally {
     if (vez === abertura) $("abrir").querySelector("button").disabled = false;
   }
@@ -225,7 +231,7 @@ async function salvarFalas(falas, origem) {
   const duracao = video.duracao || player.duracao || null;
   let salvo = { falas, origem, posicao: 0 };
   try {
-    salvo = await enviarJson(`/api/videos/${id}/falas`, { titulo, canal, duracao, origem, falas }, "PUT");
+    salvo = await insistir(() => enviarJson(`/api/videos/${id}/falas`, { titulo, canal, duracao, origem, falas }, "PUT"));
   } catch (erro) {
     // A transcrição levou a duração do vídeo: sem salvar, ainda dá para praticar.
     avisar(`As falas não foram salvas. ${erro.message}`, true);
@@ -752,7 +758,7 @@ async function comecar() {
     abrir(link);
   } else escreverLetreiro();
   try {
-    const [resumo, videos] = await Promise.all([pedir("/api/resumo"), pedir("/api/videos")]);
+    const [resumo, videos] = await insistir(() => Promise.all([pedir("/api/resumo"), pedir("/api/videos")]));
     mostrarResumo(resumo);
     mostrarSemana(resumo);
     mostrarRecentes(videos);

@@ -4,7 +4,7 @@ Treino de inglês com vídeos.
 
 A pessoa escolhe um vídeo, ouve uma fala por vez e digita o que entendeu. O programa corrige, descobre por que ela errou e traz o trecho de volta no dia certo.
 
-O repositório se chama `typelead`; a pasta local continua `04-englishVideos`.
+O repositório se chama `typelead`; a pasta local, `04-typelead`.
 
 ## Objetivo
 
