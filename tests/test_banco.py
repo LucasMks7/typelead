@@ -1,11 +1,12 @@
 import sqlite3
 import threading
+from datetime import date, timedelta
 
 import pytest
 
 from typelead import banco as modulo
 from typelead.diagnostico import DIGITACAO, ESCUTA, INDEFINIDO, VOCABULARIO, Desistencia
-from typelead.banco import Banco, FalhaNoBanco, Item, Tentativa, caminho_padrao
+from typelead.banco import Banco, FalhaNoBanco, Item, Tentativa, caminho_padrao, dias_seguidos
 from typelead.legendas import Fala, Palavra
 
 FALAS = [Fala(0, 2, "The kettle.", (Palavra("The", 0, 1), Palavra("kettle.", 1, 2))), Fala(2, 4, "Two cups.")]
@@ -293,3 +294,38 @@ def test_a_pessoa_discorda(banco):
     assert banco.diagnosticar("r1")[0]["corrigido"] == VOCABULARIO
     assert not banco.corrigir_diagnostico(erro["id"] - 1, VOCABULARIO)
     assert not banco.corrigir_diagnostico(999, VOCABULARIO)
+
+
+# O resumo
+
+HOJE = date(2026, 3, 10)
+
+
+def antes(*quantos):
+    return {HOJE - timedelta(days=n) for n in quantos}
+
+
+@pytest.mark.parametrize(
+    ("dias", "esperado"),
+    [(antes(), 0), (antes(0), 1), (antes(0, 1, 2), 3), (antes(1, 2), 2), (antes(0, 2, 3), 1), (antes(2, 3), 0)],
+)
+def test_dias_seguidos(dias, esperado):
+    assert dias_seguidos(dias, HOJE) == esperado
+
+
+def test_resumo_do_dia(banco):
+    salvar(banco)
+    primeira, segunda = ids(banco)
+    for fala, opcoes in [(primeira, {}), (primeira, {}), (segunda, {"com_ajuda": True})]:
+        banco.salvar_tentativa(tentativa(fala, "certa", **opcoes))
+    resumo = banco.resumo()
+    assert (resumo["hoje"], resumo["dias_seguidos"]) == (1, 1)
+    assert [dia["certas"] for dia in resumo["semana"]] == [0, 0, 0, 0, 0, 0, 1]
+    # Dez dias depois, aquilo já saiu da semana e da sequência.
+    assert banco.resumo(date.today() + timedelta(days=10))["semana"][0]["certas"] == 0
+
+
+def test_resumo_vazio(banco):
+    resumo = banco.resumo(HOJE)
+    assert (resumo["hoje"], resumo["dias_seguidos"], len(resumo["semana"])) == (0, 0, 7)
+    assert resumo["semana"][-1]["dia"] == "2026-03-10"

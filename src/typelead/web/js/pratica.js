@@ -82,19 +82,53 @@ export class Pratica {
   }
 }
 
+/** Falas acertadas seguidas, de primeira e sem ajuda. */
+export class Sequencia {
+  #contadas = new Set();
+  atual = 0;
+
+  /** Registra uma conferência. Devolve se a sequência cresceu. */
+  registrar({ rodada, acertou, comAjuda }) {
+    const nova = !this.#contadas.has(rodada);
+    this.#contadas.add(rodada);
+    if (!acertou) this.atual = 0;
+    else if (nova && !comAjuda) {
+      this.atual += 1;
+      return true;
+    }
+    return false;
+  }
+}
+
+/** A próxima fala ainda não acertada, dando a volta; -1 se não falta nenhuma. */
+export function proximaQueFalta(falas, depoisDe = -1) {
+  for (let passo = 1; passo <= falas.length; passo++) {
+    const indice = (depoisDe + passo) % falas.length;
+    if (!falas[indice].acertada) return indice;
+  }
+  return -1;
+}
+
 /** A fala que está no ar neste instante ou, entre duas, a próxima. */
 export function falaEm(falas, instante) {
   const achada = falas.findIndex((fala) => fala.fim > instante);
   return achada === -1 ? falas.length - 1 : achada;
 }
 
-/** Posição e largura de cada fala na fita, em porcentagem do vídeo. */
+/** Posição e largura de cada fala na fita, em porcentagem do vídeo, e a altura, pelas palavras. */
 export function fita(falas, duracao) {
-  const total = Math.max(duracao || 0, falas.at(-1)?.fim ?? 0) || 1;
-  return falas.map(({ inicio, fim }) => ({
+  const total = duracaoDaFita(falas, duracao);
+  const palavras = falas.map(({ texto }) => separar(texto).length);
+  const maior = Math.max(...palavras, 1);
+  return falas.map(({ inicio, fim }, i) => ({
     esquerda: (100 * inicio) / total,
     largura: (100 * (fim - inicio)) / total,
+    altura: 30 + (70 * palavras[i]) / maior,
   }));
+}
+
+export function duracaoDaFita(falas, duracao) {
+  return Math.max(duracao || 0, falas.at(-1)?.fim ?? 0) || 1;
 }
 
 /** 65 vira "1:05" e 3725 vira "1:02:05". */

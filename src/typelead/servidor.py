@@ -43,6 +43,7 @@ FALHAS_QUE_AINDA_TOCAM = {"recusado", "desconhecido"}
 # executar um módulo com esse tipo. Por isso, fica fixado aqui.
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("font/woff2", ".woff2")
 
 
 IdDoVideo = Annotated[str, NoCaminho(pattern=r"^[A-Za-z0-9_-]{11}$")]
@@ -158,6 +159,10 @@ def criar_app(
     def listar_videos():
         return banco.recentes()
 
+    @app.get("/api/resumo")
+    def resumir():
+        return banco.resumo()
+
     @app.post("/api/videos")
     def abrir_video(pedido: PedidoDeVideo):
         try:
@@ -234,7 +239,7 @@ def criar_app(
         numero = banco.salvar_tentativa(Tentativa(**dados))
         if numero is None:
             raise HTTPException(404, "Esta fala não está salva.")
-        return {"id": numero, "erros": banco.diagnosticar(recebida.rodada)}
+        return {"id": numero, "erros": banco.diagnosticar(recebida.rodada), "resumo": banco.resumo()}
 
     @app.put("/api/rodadas/{rodada}/desistencia")
     def desistir(rodada: Annotated[str, NoCaminho(pattern=RODADA)], recebida: DesistenciaRecebida):

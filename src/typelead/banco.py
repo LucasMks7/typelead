@@ -5,10 +5,10 @@ import os
 import sqlite3
 import sys
 import threading
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from itertools import groupby
 from pathlib import Path
 
@@ -319,6 +319,26 @@ class Banco:
             )
         return numero
 
+    def resumo(self, hoje: date | None = None) -> dict:
+        """Quantas falas certas hoje, há quantos dias seguidos e os últimos sete dias."""
+        hoje = hoje or date.today()
+        with self._usar() as conexao:
+            linhas = conexao.execute(
+                """
+                SELECT date(criada_em, 'localtime') AS dia, COUNT(DISTINCT fala_id) AS certas
+                FROM tentativas
+                WHERE acertou AND NOT com_ajuda
+                GROUP BY dia
+                """
+            ).fetchall()
+        por_dia = {date.fromisoformat(linha["dia"]): linha["certas"] for linha in linhas}
+        semana = [hoje - timedelta(days=atras) for atras in range(6, -1, -1)]
+        return {
+            "hoje": por_dia.get(hoje, 0),
+            "dias_seguidos": dias_seguidos(por_dia, hoje),
+            "semana": [{"dia": dia.isoformat(), "certas": por_dia.get(dia, 0)} for dia in semana],
+        }
+
     # Diagnóstico
 
     def desistir(self, rodada: str, desistencia: Desistencia) -> None:
@@ -423,6 +443,16 @@ class Banco:
             {"rodada": rodada},
         ).fetchall()
         return {linha["forma"] for linha in linhas}
+
+
+def dias_seguidos(dias: Collection[date], hoje: date) -> int:
+    """Sem prática hoje, a sequência de ontem ainda vale: o dia não acabou."""
+    dia = hoje if hoje in dias else hoje - timedelta(days=1)
+    quantos = 0
+    while dia in dias:
+        quantos += 1
+        dia -= timedelta(days=1)
+    return quantos
 
 
 def _agora() -> str:

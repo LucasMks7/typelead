@@ -162,7 +162,6 @@ $("transcrever").addEventListener("click", () =>
       escrever("resultado-transcricao", `${estado} ${Math.round(progresso * 100)}%`),
     );
     const linhas = falas.map((f) => `${f.inicio.toFixed(2)} → ${f.fim.toFixed(2)}  ${f.texto}`);
-    escrever("resultado-transcricao", linhas.join("
-"));
+    escrever("resultado-transcricao", linhas.join("\n"));
   }),
 );

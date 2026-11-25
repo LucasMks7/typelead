@@ -36,6 +36,7 @@ Depois, abra http://localhost:8765. O servidor só atende este computador. Para 
 
 | Tecla | O que faz |
 | --- | --- |
+| espaço | próxima palavra, com palavras escondidas |
 | Enter | corrigir; depois, ver a resposta ou seguir. Com o campo vazio, ouvir |
 | Ctrl+espaço | ouvir a fala de novo |
 | ↓ e ↑ | próxima e anterior |
@@ -46,6 +47,10 @@ Depois, abra http://localhost:8765. O servidor só atende este computador. Para 
 Com palavras escondidas, o espaço passa para a próxima e o Backspace, em uma palavra vazia, volta à anterior. Também dá para clicar em uma palavra. A pontuação e o apóstrofo já estão à mostra e não precisam ser digitados; algarismos aparecem como `#`.
 
 Em **Corrigir**, dá para escolher **enquanto digito**. Com palavras escondidas, a correção é letra por letra; no texto livre, cada palavra é corrigida ao apertar espaço, sem revelar a resposta.
+
+### Para manter o ritmo
+
+O topo mostra quantas falas você acertou hoje, sem ver o texto, e a meta de 20. A partir de duas, aparece a sequência de falas certas de primeira. A página inicial mostra a semana, os dias seguidos e os últimos vídeos. Os sons podem ser desligados no topo. Se o sistema pede menos movimento, não há animação.
 
 ### Por que errei
 
@@ -118,6 +123,7 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | `src/typelead/web/js/player.js` | Conversa com o player do YouTube e toca um trecho exato |
 | `src/typelead/web/js/medidas.js` | Contas puras, testadas fora do navegador |
 | `src/typelead/web/js/app.js` | A tela de prática |
+| `src/typelead/web/js/inicio.js`, `desenho.js`, `sons.js` | A página inicial, as palavras na tela e os sons de acerto e erro |
 | `src/typelead/web/js/correcao.js` | Compara o digitado com a fala, palavra por palavra |
 | `src/typelead/web/js/lacunas.js` | As palavras escondidas: o sorteio, os pontos e a correção por letra |
 | `src/typelead/web/js/ditado.js`, `pratica.js`, `atalhos.js` | O estado do ditado, o da prática e os atalhos, testados fora do navegador |
@@ -130,4 +136,4 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 
 ## Licença
 
-[MIT](LICENSE). A tradução usa o modelo [opus-mt-tc-big-en-pt](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-pt), da Universidade de Helsinque, sob [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), convertido para o CTranslate2.
+[MIT](LICENSE). As fontes Red Hat Text e Red Hat Mono, em `src/typelead/web/fontes`, têm licença [SIL OFL 1.1](src/typelead/web/fontes/red-hat-mono-LICENSE.txt). A tradução usa o modelo [opus-mt-tc-big-en-pt](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-pt), da Universidade de Helsinque, sob [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), convertido para o CTranslate2.

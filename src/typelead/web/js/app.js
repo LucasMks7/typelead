@@ -3,11 +3,14 @@
 import { enviarJson, pedir, transcrever } from "./api.js";
 import { acaoDaTecla } from "./atalhos.js";
 import { separar } from "./correcao.js";
+import { criar, desenharErro, desenharPalavra, marcar } from "./desenho.js";
 import { QUANDO_CORRIGIR, Resposta } from "./ditado.js";
 import { Gravacao, pedirSomDaAba } from "./gravador.js";
+import { escreverLetreiro, mostrarRecentes, mostrarResumo, mostrarSemana } from "./inicio.js";
 import { Lacunas, sortearOcultas } from "./lacunas.js";
 import { Player } from "./player.js";
-import { Pratica, falaEm, fita, relogio } from "./pratica.js";
+import { Pratica, Sequencia, duracaoDaFita, falaEm, fita, proximaQueFalta, relogio } from "./pratica.js";
+import { tocar } from "./sons.js";
 
 const ORIGENS = {
   autor: "",
@@ -22,20 +25,22 @@ const MODOS = {
   livre: (fala) => new Resposta(fala.texto),
 };
 
-const DIAGNOSTICOS = {
-  digitacao: "digitação",
-  escuta: "escuta",
-  vocabulario: "vocabulário",
-  homofono: "som igual",
-  indefinido: "não sei dizer",
-};
-
 const $ = (id) => document.getElementById(id);
+
+// As opções em botões: modo, quando corrigir e velocidade.
+const escolhas = (nome) => [...document.querySelectorAll(`input[name="${nome}"]`)];
+const escolhido = (nome) => escolhas(nome).find((opcao) => opcao.checked).value;
+
+function escolher(nome, valor) {
+  const opcao = escolhas(nome).find(({ value }) => value === valor);
+  if (opcao) opcao.checked = true;
+}
 
 let video; // o que o servidor disse do vídeo aberto
 let player;
 let pratica;
 let traducaoAberta = false;
+const sequencia = new Sequencia();
 let respostas; // por modo e fala: voltar a uma delas traz o que foi digitado
 // Muda a cada vídeo aberto: uma resposta atrasada do anterior é ignorada.
 let abertura = 0;
@@ -76,13 +81,13 @@ async function abrir(link, novo = false) {
     $("canal").textContent = achado.canal;
     document.title = `${achado.titulo} — typelead`;
     history.replaceState(null, "", `?v=${achado.id}`);
+    $("ambiente").style.backgroundImage = `url("https://i.ytimg.com/vi/${achado.id}/hqdefault.jpg")`;
     if (!achado.incorporavel) {
       avisar("O dono deste vídeo só permite tocá-lo no site do YouTube. O typelead ainda não consegue praticar com ele.", true);
       return;
     }
 
-    $("inicio").hidden = true;
-    $("sala").hidden = false;
+    irParaTela("sala");
     const alvo = document.createElement("div");
     $("palco").replaceChildren(alvo);
     const criado = await Player.criar(alvo, achado.id, (erro) => {
@@ -112,8 +117,17 @@ function limpar() {
   pratica = undefined;
   respostas = undefined;
   $("palco").replaceChildren();
-  for (const id of ["sala", "sem-legenda", "pratica", "fita"]) $(id).hidden = true;
-  $("inicio").hidden = false;
+  $("ambiente").style.backgroundImage = "";
+  for (const id of ["sem-legenda", "pratica", "fita"]) $(id).hidden = true;
+  irParaTela("inicio");
+}
+
+/** "inicio" ou "sala". O campo do link vai junto: grande no início, no topo na sala. */
+function irParaTela(tela) {
+  document.body.dataset.tela = tela;
+  $("inicio").hidden = tela !== "inicio";
+  $("sala").hidden = tela !== "sala";
+  $(tela === "inicio" ? "vaga-inicio" : "vaga-topo").append($("abrir"));
 }
 
 // Sem legenda: transcrever ou abrir um arquivo
@@ -195,6 +209,7 @@ async function transcreverPeloSom() {
 async function abrirArquivo(arquivo) {
   const vez = abertura;
   avisar("");
+  $("legenda").hidePopover();
   try {
     const { falas } = await pedir("/api/legendas", { method: "POST", body: arquivo });
     if (vez === abertura) await salvarFalas(falas, "arquivo");
@@ -228,7 +243,6 @@ function praticar({ falas, origem, posicao, comeco }) {
   $("pratica").hidden = false;
   $("total").textContent = falas.length;
   $("origem").textContent = ORIGENS[origem];
-  $("velocidade").value = String(pratica.velocidade);
   traducaoAberta = false;
   mostrarTraducao();
   montarFita();
@@ -238,21 +252,22 @@ function praticar({ falas, origem, posicao, comeco }) {
 
 /** Criada na primeira vez e guardada: as palavras sorteadas não mudam ao voltar. */
 function respostaAtual() {
-  const doModo = respostas[$("modo").value];
-  doModo[pratica.indice] ??= MODOS[$("modo").value](pratica.fala);
+  const doModo = respostas[escolhido("modo")];
+  doModo[pratica.indice] ??= MODOS[escolhido("modo")](pratica.fala);
   return doModo[pratica.indice];
 }
-const corrigeDigitando = () => $("quando").value === "digitando";
+const corrigeDigitando = () => escolhido("quando") === "digitando";
 
 function montarFita() {
   const duracao = video.duracao || player.duracao;
-  const blocos = fita(pratica.falas, duracao).map(({ esquerda, largura }, indice) => {
+  const blocos = fita(pratica.falas, duracao).map(({ esquerda, largura, altura }, indice) => {
     const bloco = document.createElement("button");
     bloco.type = "button";
     // Só a atual entra no Tab: centenas de paradas impediriam de passar dali.
     bloco.tabIndex = -1;
     bloco.style.left = `${esquerda}%`;
     bloco.style.width = `${largura}%`;
+    bloco.style.setProperty("--altura", `${altura}%`);
     bloco.dataset.indice = indice;
     const rotulo = `Fala ${indice + 1}, em ${relogio(pratica.falas[indice].inicio)}`;
     bloco.title = rotulo;
@@ -260,7 +275,7 @@ function montarFita() {
     bloco.toggleAttribute("data-acertada", pratica.falas[indice].acertada);
     return bloco;
   });
-  $("fita").replaceChildren(...blocos);
+  $("fita").replaceChildren(...blocos, criar("span", "", { className: "agulha", ariaHidden: "true" }));
   $("fita").hidden = false;
 }
 
@@ -272,17 +287,19 @@ function atualizar() {
   $("avancar").disabled = pratica.ultima;
   $("mostrar").textContent = pratica.mostrada ? "Esconder texto" : "Mostrar texto";
   $("mostrar").setAttribute("aria-pressed", String(pratica.mostrada));
-  $("velocidade").value = String(pratica.velocidade);
+  escolher("velocidade", String(pratica.velocidade));
 
   if ($("digitado").value !== respostaAtual().texto) $("digitado").value = respostaAtual().texto;
   atualizarFala();
 
-  for (const bloco of $("fita").children) {
+  for (const bloco of blocosDaFita()) {
     const atual = Number(bloco.dataset.indice) === pratica.indice;
     bloco.toggleAttribute("aria-current", atual);
     bloco.tabIndex = atual ? 0 : -1;
   }
 }
+
+const blocosDaFita = () => [...$("fita").querySelectorAll("button")];
 
 /** O texto da fala: escondido, corrigido ou à mostra. */
 function atualizarFala() {
@@ -297,13 +314,15 @@ function atualizarFala() {
   $("digitado").classList.toggle("oculto", comLacunas);
   if (comLacunas && !resposta.semPalavras) return desenharLacunas(resposta, mostrada);
 
+  desenhado = undefined;
+  $("fala").classList.remove("acertou", "errou");
   let itens = resposta.itens;
   if (corrigeDigitando() && !resposta.conferida && !mostrada) itens = resposta.parcial();
   if (itens?.length === 0) itens = null;
 
   const palavras = pratica.quantasPalavras;
   $("fala").classList.toggle("escondida", !itens && !mostrada);
-  if (itens) $("fala").replaceChildren(...itens.flatMap((item) => [marcar(item, mostrada), " "]));
+  if (itens) $("fala").replaceChildren(...itens.flatMap((item, i) => [marcar(item, mostrada, 3 * i), " "]));
   else if (mostrada) $("fala").textContent = pratica.fala.texto;
   else $("fala").textContent = `${palavras} ${palavras === 1 ? "palavra" : "palavras"}. Ouça quantas vezes precisar.`;
   // O leitor de tela precisa saber que o texto é em inglês.
@@ -311,76 +330,39 @@ function atualizarFala() {
   else $("fala").removeAttribute("lang");
 }
 
+// Desenhar de novo o que não mudou recomeçaria as animações.
+let desenhado;
+let nova = null; // a letra recém-digitada
+
 /** A fala com pontos no lugar das letras escondidas. */
 function desenharLacunas(resposta, mostrada) {
-  const campo = $("digitado");
-  const cursor = resposta.cursor(campo.selectionStart);
-  const partes = resposta.vista(corrigeDigitando()).flatMap((palavra) => {
-    const desenhada = desenharPalavra(palavra, mostrada, cursor, resposta.itens);
+  const cursor = resposta.cursor($("digitado").selectionStart);
+  const vista = resposta.vista(corrigeDigitando());
+  const estado = JSON.stringify([resposta.rodada, vista, cursor, mostrada]);
+  if (estado === desenhado) return;
+  desenhado = estado;
+  // Com a classe, as letras novas repetiriam a onda da correção.
+  $("fala").classList.remove("acertou", "errou");
+
+  let ordem = 0;
+  const partes = vista.flatMap((palavra) => {
+    const desenhada = desenharPalavra(palavra, { mostrada, cursor, itens: resposta.itens, ordem, nova });
+    ordem += palavra.letras ?? 0;
     return palavra.colada ? [desenhada] : [" ", desenhada];
   });
+  nova = null;
   $("fala").classList.remove("escondida");
   $("fala").lang = "en";
   $("fala").replaceChildren(...partes);
 }
 
-function desenharPalavra({ oculta, texto, sinais, letras, tipo }, mostrada, cursor, itens) {
-  const por = (pai, tag, textContent, mais) => {
-    const filho = Object.assign(document.createElement(tag), { textContent, ...mais });
-    pai.append(filho);
-    return filho;
-  };
-  const marca = document.createElement("span");
-  marca.className = "palavra";
-  if (oculta === null) {
-    marca.textContent = texto;
-    return marca;
-  }
-  // Com a resposta à mostra: a palavra certa, ou a digitada riscada e a certa.
-  if (mostrada) {
-    const { digitada } = itens?.[oculta] ?? {};
-    if (tipo === "certa") return marcar({ tipo, esperada: texto }, true);
-    if (tipo) return marcar({ tipo, esperada: texto, digitada }, true);
-    por(marca, "strong", texto);
-    return marca;
-  }
-  marca.classList.add("lacunada");
-  marca.dataset.oculta = oculta;
-  por(marca, "span", `${letras} ${letras === 1 ? "letra" : "letras"}`, { className: "oculto", lang: "pt-BR" });
-  const casas = sinais.map(({ sinal, estado }) => por(marca, "span", sinal, { className: `casa ${estado}`, ariaHidden: "true" }));
-  if (oculta === cursor.palavra) {
-    const daLetra = casas.filter((casa) => !casa.classList.contains("fixo"));
-    // Com a palavra completa, o cursor espera depois da última letra.
-    if (cursor.letra < letras) daLetra[cursor.letra].classList.add("cursor");
-    else daLetra.at(-1).classList.add("cursor-depois");
-  }
-  return marca;
-}
-
-/** Uma palavra corrigida. A resposta só aparece se a fala estiver à mostra. */
-function marcar({ tipo, esperada, digitada }, mostrada) {
-  const marca = document.createElement("span");
-  marca.className = `palavra ${tipo}`;
-  const por = (tag, textContent, mais) => marca.append(Object.assign(document.createElement(tag), { textContent, ...mais }));
-  // A cor não chega a todos: o tipo do erro também vai em texto para o leitor de tela.
-  const explicar = (texto) => por("span", texto, { className: "oculto", lang: "pt-BR" });
-
-  if (tipo === "certa" || tipo === "pendente") {
-    por("span", esperada || digitada);
-    return marca;
-  }
-  if (digitada) {
-    explicar(tipo === "sobrou" ? " a mais: " : " errada: ");
-    por("s", digitada);
-  }
-  if (esperada && mostrada) {
-    explicar(" o certo: ");
-    por("strong", esperada);
-  } else if (tipo === "faltou") {
-    explicar(" falta uma palavra ");
-    por("span", "", { className: "lacuna" });
-  }
-  return marca;
+/** A onda que percorre as letras quando a fala é conferida. */
+function animarCorrecao(classe) {
+  const fala = $("fala");
+  fala.classList.remove("acertou", "errou");
+  // Ler a posição obriga o navegador a ver a classe sair antes de ela voltar.
+  void fala.offsetWidth;
+  fala.classList.add(classe);
 }
 
 function placar(resposta, mostrada) {
@@ -392,17 +374,33 @@ function placar(resposta, mostrada) {
   return mostrada ? `${pontos} ${seguir}` : `${pontos} Corrija e aperte Enter, ou só Enter para ver a resposta.`;
 }
 
+let vezDeOuvir = 0;
+
 async function ouvir() {
   const { indice } = pratica;
   const { inicio, fim } = pratica.fala;
+  vezDeOuvir += 1;
+  const vez = vezDeOuvir;
   avisar("");
   respostaAtual().ouviu(pratica.velocidade);
+  document.body.toggleAttribute("data-tocando", true);
+  acompanhar(vez);
   try {
     const resultado = await player.tocarFala(inicio, fim, pratica.velocidade);
-    if (resultado === "fim") $("fita").children[indice]?.setAttribute("data-ouvida", "");
+    if (resultado === "fim") blocosDaFita()[indice]?.setAttribute("data-ouvida", "");
   } catch (erro) {
     falhou(erro);
+  } finally {
+    if (vez === vezDeOuvir) document.body.removeAttribute("data-tocando");
   }
+}
+
+/** A agulha da fita segue o vídeo enquanto a fala toca. */
+function acompanhar(vez) {
+  if (vez !== vezDeOuvir || !player || !pratica || !document.body.hasAttribute("data-tocando")) return;
+  const total = duracaoDaFita(pratica.falas, video.duracao || player.duracao);
+  $("fita").style.setProperty("--agulha", `${Math.min(100, (100 * player.tempo) / total)}%`);
+  requestAnimationFrame(() => acompanhar(vez));
 }
 
 const ACOES = {
@@ -421,8 +419,16 @@ const ACOES = {
   conferir: () => {
     const resposta = respostaAtual();
     resposta.conferir();
-    if (resposta.acertou && !resposta.comAjuda) $("fita").children[pratica.indice].setAttribute("data-acertada", "");
+    const { acertou } = resposta;
+    if (acertou && !resposta.comAjuda) {
+      pratica.fala.acertada = true;
+      blocosDaFita()[pratica.indice].setAttribute("data-acertada", "");
+    }
+    const cresceu = sequencia.registrar(resposta);
+    mostrarSequencia(cresceu);
     atualizar();
+    animarCorrecao(acertou ? "acertou" : "errou");
+    if (sonsLigados()) tocar(acertou ? "acerto" : "erro");
     salvarTentativa(resposta);
   },
   traduzir: () => {
@@ -430,7 +436,11 @@ const ACOES = {
     if (traducaoAberta) respostaAtual().traduziu();
     mostrarTraducao();
   },
-  enter: () => ACOES[respostaAtual().proximoPasso(pratica.mostrada)](),
+  enter: () => {
+    const passo = respostaAtual().proximoPasso(pratica.mostrada);
+    if (passo === "avancar" && pratica.ultima) chegarAoFim();
+    else ACOES[passo]();
+  },
   maisDevagar: () => {
     pratica.mudarVelocidade(-1);
     atualizar();
@@ -467,8 +477,8 @@ function salvarTentativa(resposta) {
   const tentativa = {
     fala_id: pratica.fala.id,
     rodada: resposta.rodada,
-    modo: $("modo").value,
-    corrigir: $("quando").value,
+    modo: escolhido("modo"),
+    corrigir: escolhido("quando"),
     texto: resposta.texto,
     com_ajuda: resposta.comAjuda,
     ...resposta.medidas(performance.now()),
@@ -489,6 +499,7 @@ async function receberErros(resposta, pedido) {
   const salvo = await salvar(pedido);
   if (!salvo) return;
   resposta.erros = salvo.erros;
+  if (salvo.resumo) mostrarResumo(salvo.resumo);
   if (pratica && respostaAtual() === resposta) mostrarErros(resposta);
 }
 
@@ -496,28 +507,41 @@ async function receberErros(resposta, pedido) {
 function mostrarErros(resposta) {
   const resolvida = resposta.acertou || (pratica.mostrada && resposta.conferida);
   const erros = resolvida ? resposta.erros.filter((erro) => erro.diagnostico) : [];
+  // Os que dizem algo vêm primeiro.
+  erros.sort((a, b) => (a.diagnostico === "indefinido") - (b.diagnostico === "indefinido"));
   $("motivos").hidden = erros.length === 0;
-  $("erros").replaceChildren(...erros.map(desenharErro));
+  $("erros").replaceChildren(...erros.map((erro) => desenharErro(erro, (tipo) => trocarDiagnostico(erro, tipo))));
 }
 
-function desenharErro(erro) {
-  const item = document.createElement("li");
-  const palavras = Object.assign(document.createElement("span"), { lang: "en" });
-  if (erro.digitada) palavras.append(Object.assign(document.createElement("s"), { textContent: erro.digitada }), " ");
-  palavras.append(erro.esperada);
-  const escolha = document.createElement("select");
-  escolha.setAttribute("aria-label", `Por que errei ${erro.esperada}`);
-  escolha.title = "Se não foi isso, escolha o motivo";
-  for (const [tipo, nome] of Object.entries(DIAGNOSTICOS)) escolha.append(new Option(nome, tipo));
-  escolha.value = erro.corrigido ?? erro.diagnostico;
-  escolha.addEventListener("change", () => {
-    const tipo = escolha.value;
-    erro.corrigido = tipo;
-    salvar(() => enviarJson(`/api/erros/${erro.id}/diagnostico`, { tipo }, "PUT"));
-    if (comMouse) $("digitado").focus();
-  });
-  item.append(palavras, escolha);
-  return item;
+function trocarDiagnostico(erro, tipo) {
+  erro.corrigido = tipo;
+  salvar(() => enviarJson(`/api/erros/${erro.id}/diagnostico`, { tipo }, "PUT"));
+  if (comMouse) $("digitado").focus();
+}
+
+// Sequência e fim do vídeo
+
+function mostrarSequencia(cresceu) {
+  $("sequencia").hidden = sequencia.atual < 2;
+  $("sequencia-numero").textContent = sequencia.atual;
+  if (!cresceu) return;
+  $("sequencia").classList.remove("pulsou");
+  void $("sequencia").offsetWidth;
+  $("sequencia").classList.add("pulsou");
+}
+
+function chegarAoFim() {
+  const total = pratica.falas.length;
+  const certas = pratica.falas.filter((fala) => fala.acertada).length;
+  const falta = proximaQueFalta(pratica.falas, pratica.indice);
+  $("fim-titulo").textContent = certas === total ? "Vídeo completo" : "Você chegou ao fim";
+  $("fim-texto").textContent =
+    certas === total
+      ? `Você acertou as ${total} falas sem ver o texto.`
+      : `Você acertou ${certas} de ${total} falas sem ver o texto.`;
+  $("fim-falta").hidden = falta === -1;
+  $("fim").showModal();
+  if (sonsLigados()) tocar("fim");
 }
 
 /** Muda de fala e já toca a nova. */
@@ -549,9 +573,20 @@ $("arquivo").addEventListener("change", ({ target }) => {
 for (const id of ["voltar", "repetir", "avancar", "mostrar", "traduzir"]) {
   $(id).addEventListener("click", () => ACOES[id]());
 }
-$("velocidade").addEventListener("change", ({ target }) => {
-  pratica.definirVelocidade(Number(target.value));
-  atualizar();
+for (const opcao of escolhas("velocidade")) {
+  opcao.addEventListener("change", () => {
+    pratica.definirVelocidade(Number(opcao.value));
+    atualizar();
+  });
+}
+$("fim-falta").addEventListener("click", () => {
+  $("fim").close();
+  mudar(() => pratica.irPara(proximaQueFalta(pratica.falas, pratica.indice)));
+});
+$("fim-fechar").addEventListener("click", () => $("fim").close());
+$("buscar-de-novo").addEventListener("click", () => {
+  $("legenda").hidePopover();
+  abrir(`https://www.youtube.com/watch?v=${video.id}`, true);
 });
 $("digitado").addEventListener("input", ({ target, isComposing }) => {
   // No meio de um acento, mexer no campo o desmancharia; "compositionend" vem depois.
@@ -563,7 +598,12 @@ function escrever(campo) {
   const resposta = respostaAtual();
   // O cursor fica onde estava no texto já arrumado.
   const posicao = resposta.arrumar(campo.value.slice(0, campo.selectionStart)).length;
+  const antes = resposta.texto.length;
   resposta.escrever(campo.value);
+  if (resposta instanceof Lacunas && resposta.texto.length === antes + 1) {
+    const { palavra, letra } = resposta.cursor(posicao);
+    nova = { palavra, letra: letra - 1 };
+  }
   if (campo.value !== resposta.texto) {
     campo.value = resposta.texto;
     campo.setSelectionRange(posicao, posicao);
@@ -607,12 +647,16 @@ $("digitado").addEventListener("beforeinput", (evento) => {
 });
 
 function mudarPreferencia({ target }) {
-  guardar(target.id, target.value);
-  // Anunciar cada palavra digitada atropelaria o leitor de tela.
-  $("fala").ariaLive = corrigeDigitando() || $("modo").value !== "livre" ? "off" : "polite";
+  guardar(target.name, target.value);
+  anunciarSePuder();
   if (!pratica) return;
-  if (target.id === "modo") pratica.mostrar(false);
+  if (target.name === "modo") pratica.mostrar(false);
   atualizar();
+}
+
+/** Anunciar cada palavra digitada atropelaria o leitor de tela. */
+function anunciarSePuder() {
+  $("fala").ariaLive = corrigeDigitando() || escolhido("modo") !== "livre" ? "off" : "polite";
 }
 
 // Escolhida uma opção com o mouse, o foco volta ao ditado. Com o teclado, não: cada
@@ -620,10 +664,22 @@ function mudarPreferencia({ target }) {
 let comMouse = false;
 document.addEventListener("pointerdown", () => (comMouse = true), true);
 document.addEventListener("keydown", () => (comMouse = false), true);
-for (const id of ["modo", "quando", "velocidade"]) {
-  $(id).addEventListener("change", () => comMouse && pratica && $("digitado").focus());
+for (const opcao of [...escolhas("modo"), ...escolhas("quando")]) opcao.addEventListener("change", mudarPreferencia);
+for (const nome of ["modo", "quando", "velocidade"]) {
+  for (const opcao of escolhas(nome)) {
+    // O clique no rótulo só passa o foco à opção depois do "change".
+    opcao.addEventListener("click", () => comMouse && pratica && $("digitado").focus());
+  }
 }
-for (const id of ["modo", "quando"]) $(id).addEventListener("change", mudarPreferencia);
+
+const sonsLigados = () => $("sons").getAttribute("aria-pressed") === "true";
+
+$("sons").addEventListener("click", () => {
+  $("sons").setAttribute("aria-pressed", String(!sonsLigados()));
+  guardar("sons", String(sonsLigados()));
+  if (sonsLigados()) tocar("acerto");
+});
+
 $("fita").addEventListener("click", ({ target }) => {
   if (target.dataset.indice) mudar(() => pratica.irPara(Number(target.dataset.indice)));
 });
@@ -631,7 +687,7 @@ $("fita").addEventListener("click", ({ target }) => {
 // Clicado com o mouse, o botão devolve o foco ao ditado. Pelo teclado, o foco
 // continua onde está.
 document.addEventListener("click", (evento) => {
-  if (evento.detail > 0 && evento.target.closest("#pratica button, #fita button")) $("digitado").focus();
+  if (pratica && evento.detail > 0 && evento.target.closest("#pratica button, #fita button, #sons")) $("digitado").focus();
 });
 
 function onde(alvo) {
@@ -641,7 +697,7 @@ function onde(alvo) {
 }
 
 document.addEventListener("keydown", (evento) => {
-  if (!pratica || evento.defaultPrevented) return;
+  if (!pratica || evento.defaultPrevented || $("fim").open) return;
   const acao = acaoDaTecla(evento, onde(evento.target));
   if (!acao) return;
   evento.preventDefault();
@@ -680,42 +736,29 @@ function guardado(nome) {
   }
 }
 
-for (const [id, aceitos] of [["modo", Object.keys(MODOS)], ["quando", QUANDO_CORRIGIR]]) {
-  if (aceitos.includes(guardado(id))) $(id).value = guardado(id);
-  mudarPreferencia({ target: $(id) });
+for (const [nome, aceitos] of [["modo", Object.keys(MODOS)], ["quando", QUANDO_CORRIGIR]]) {
+  if (aceitos.includes(guardado(nome))) escolher(nome, guardado(nome));
 }
+if (guardado("sons") === "false") $("sons").setAttribute("aria-pressed", "false");
+anunciarSePuder();
 
-// Os últimos vídeos
+// Ao abrir a página
 
-async function mostrarRecentes() {
-  let videos;
+async function comecar() {
+  const pedido = new URLSearchParams(location.search).get("v");
+  if (pedido) {
+    const link = `https://www.youtube.com/watch?v=${pedido}`;
+    $("link").value = link;
+    abrir(link);
+  } else escreverLetreiro();
   try {
-    videos = await pedir("/api/videos");
+    const [resumo, videos] = await Promise.all([pedir("/api/resumo"), pedir("/api/videos")]);
+    mostrarResumo(resumo);
+    mostrarSemana(resumo);
+    mostrarRecentes(videos);
   } catch (erro) {
-    return falhou(erro);
+    falhou(erro);
   }
-  $("recentes").hidden = videos.length === 0;
-  $("lista").replaceChildren(
-    ...videos.map(({ id, titulo, canal, acertadas, total }) => {
-      const item = document.createElement("li");
-      const ir = Object.assign(document.createElement("a"), { href: `?v=${id}` });
-      const andamento = Object.assign(document.createElement("progress"), { max: total, value: acertadas, ariaHidden: "true" });
-      ir.append(
-        Object.assign(document.createElement("strong"), { textContent: titulo }),
-        Object.assign(document.createElement("span"), { textContent: canal }),
-        andamento,
-        Object.assign(document.createElement("span"), { textContent: `${acertadas} de ${total} falas certas` }),
-      );
-      item.append(ir);
-      return item;
-    }),
-  );
 }
 
-const pedido = new URLSearchParams(location.search).get("v");
-if (!pedido) mostrarRecentes();
-else {
-  const link = `https://www.youtube.com/watch?v=${pedido}`;
-  $("link").value = link;
-  abrir(link);
-}
+comecar();

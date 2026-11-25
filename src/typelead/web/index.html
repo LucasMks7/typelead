@@ -4,36 +4,68 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>typelead</title>
-    <link rel="icon" href="data:," />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d1214'/%3E%3Crect x='5' y='21' width='14' height='4' rx='2' fill='%23ffd84d'/%3E%3Ccircle cx='23' cy='23' r='2' fill='%23ffd84d'/%3E%3Ccircle cx='28' cy='23' r='2' fill='%23ffd84d'/%3E%3C/svg%3E" />
+    <link rel="preload" href="fontes/red-hat-mono.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="estilo.css" />
     <script type="module" src="js/app.js"></script>
   </head>
-  <body>
+  <body data-tela="inicio">
+    <div id="ambiente" class="ambiente" aria-hidden="true"></div>
+
     <header class="topo">
-      <a class="marca" href="/">typelead</a>
-      <form id="abrir" class="abrir">
-        <label class="oculto" for="link">Link do YouTube</label>
-        <input id="link" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Cole um link do YouTube" maxlength="5000" required />
-        <button type="submit">Abrir</button>
-      </form>
+      <a class="marca" href="/" aria-label="typelead, início"><span>type</span><span class="escrita">lead</span></a>
+      <div id="vaga-topo" class="vaga"></div>
+      <div class="fichas">
+        <span id="sequencia" class="ficha sequencia" title="Falas certas seguidas, de primeira e sem ajuda" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z" /></svg>
+          <b id="sequencia-numero">0</b> <span class="oculto">falas certas seguidas</span>
+        </span>
+        <span id="meta" class="ficha meta" title="Falas certas hoje">
+          <span class="anel" aria-hidden="true"></span>
+          <span><b id="meta-numero">0</b> de <span id="meta-total"></span> hoje</span>
+        </span>
+        <button id="sons" type="button" class="icone" aria-pressed="true" aria-label="Sons de acerto e erro" title="Sons de acerto e erro">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" /><path class="onda" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /><path class="corte" d="m17 9 5 6m0-6-5 6" /></svg>
+        </button>
+        <button type="button" class="icone" popovertarget="ajuda" aria-label="Atalhos do teclado" title="Atalhos do teclado">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="contorno" d="M3 6.5h18v11H3z" /><path class="contorno" d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 14h8" /></svg>
+        </button>
+      </div>
     </header>
 
     <main>
       <p id="aviso" class="aviso" role="status" hidden></p>
 
       <section id="inicio" class="inicio">
-        <h1>Ouça e digite.</h1>
-        <p>Cole o link de um vídeo em inglês. O typelead divide o que é dito em trechos curtos, e você completa as palavras que ouviu em cada um.</p>
-        <section id="recentes" hidden>
-          <h2>Continuar</h2>
-          <ul id="lista" class="lista"></ul>
-        </section>
+        <h1 id="letreiro" class="letreiro">Escreva a legenda.</h1>
+        <p class="chamada">Cole o link de um vídeo em inglês. Você ouve uma fala por vez e escreve o que foi dito.</p>
+        <div id="vaga-inicio" class="vaga">
+          <form id="abrir" class="abrir">
+            <label class="oculto" for="link">Link do YouTube</label>
+            <input id="link" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Cole um link do YouTube" maxlength="5000" required />
+            <button type="submit" class="principal">Abrir</button>
+          </form>
+        </div>
+
+        <div id="continuar" hidden>
+          <section class="semana" aria-labelledby="titulo-semana">
+            <h2 id="titulo-semana"></h2>
+            <ol id="dias" class="dias"></ol>
+          </section>
+          <section aria-labelledby="titulo-recentes">
+            <h2 id="titulo-recentes">Continuar</h2>
+            <ul id="lista" class="lista"></ul>
+          </section>
+        </div>
       </section>
 
       <div id="sala" class="sala" hidden>
         <section class="cena" aria-label="Vídeo">
           <div id="palco" class="palco"></div>
-          <p class="titulo"><strong id="titulo"></strong> <span id="canal"></span></p>
+          <div class="sob-o-video">
+            <p class="titulo"><strong id="titulo"></strong> <span id="canal"></span></p>
+            <button id="abrir-legenda" type="button" class="discreto" popovertarget="legenda">Legenda</button>
+          </div>
         </section>
 
         <section id="sem-legenda" class="painel" hidden>
@@ -57,61 +89,95 @@
           </div>
         </section>
 
-        <section id="pratica" class="painel pratica" hidden>
+        <section id="pratica" class="pratica" aria-label="Prática" hidden>
           <p class="posicao">
             <span>Fala <b id="numero"></b> de <b id="total"></b></span>
             <span id="instante"></span>
             <span id="origem" class="etiqueta"></span>
           </p>
 
-          <div id="fala" class="fala" aria-live="polite"></div>
+          <div class="quadro">
+            <div id="fala" class="fala" aria-live="polite"></div>
+            <label class="oculto" for="digitado">O que você ouviu, em inglês</label>
+            <textarea id="digitado" class="digitado" rows="2" lang="en" maxlength="1000" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Digite o que ouviu"></textarea>
+            <p id="traducao" class="traducao" role="status" hidden></p>
+          </div>
 
-          <p id="traducao" class="traducao" role="status" hidden></p>
-          <label class="oculto" for="digitado">O que você ouviu, em inglês</label>
-          <textarea id="digitado" class="digitado" rows="2" lang="en" maxlength="1000" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Digite o que ouviu"></textarea>
           <p id="placar" class="placar" role="status"></p>
           <section id="motivos" class="motivos" aria-label="Por que errei" hidden>
             <ul id="erros"></ul>
           </section>
 
           <div class="controles">
-            <button id="voltar" type="button" title="Fala anterior (↑)">↑ Anterior</button>
-            <button id="repetir" type="button" class="principal" title="Ouvir de novo (Ctrl+espaço)">Ouvir</button>
-            <button id="avancar" type="button" title="Próxima fala (↓)">↓ Próxima</button>
+            <button id="voltar" type="button" class="icone" aria-label="Fala anterior" title="Fala anterior (↑)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path class="contorno" d="M15 5 8 12l7 7" /></svg>
+            </button>
+            <button id="repetir" type="button" class="ouvir" title="Ouvir (Ctrl+espaço)">
+              <span class="barras" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              Ouvir
+            </button>
+            <button id="avancar" type="button" class="icone" aria-label="Próxima fala" title="Próxima fala (↓)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path class="contorno" d="m9 5 7 7-7 7" /></svg>
+            </button>
             <button id="mostrar" type="button" title="Mostrar ou esconder o texto (Ctrl+Enter)" aria-pressed="false">Mostrar texto</button>
             <button id="traduzir" type="button" title="Mostrar ou esconder a tradução (Ctrl+I)" aria-pressed="false">Tradução</button>
-            <label class="velocidade">
-              Velocidade
-              <select id="velocidade">
-                <option value="1">normal</option>
-                <option value="0.75">0,75×</option>
-                <option value="0.5">0,5×</option>
-              </select>
-            </label>
-            <label class="velocidade">
-              Modo
-              <select id="modo">
-                <option value="oculto">tudo oculto</option>
-                <option value="lacunas">lacunas</option>
-                <option value="livre">texto livre</option>
-              </select>
-            </label>
-            <label class="velocidade">
-              Corrigir
-              <select id="quando">
-                <option value="enter">ao apertar Enter</option>
-                <option value="digitando">enquanto digito</option>
-              </select>
-            </label>
           </div>
 
-          <p class="ajuda">
-            <kbd>Enter</kbd> corrigir e seguir <kbd>Ctrl</kbd><kbd>espaço</kbd> ouvir <kbd>↑</kbd><kbd>↓</kbd> mudar de fala <kbd>Ctrl</kbd><kbd>Enter</kbd> texto <kbd>Ctrl</kbd><kbd>I</kbd> tradução <kbd>Ctrl</kbd><kbd>↑</kbd><kbd>↓</kbd> velocidade
-          </p>
+          <div class="ajustes">
+            <fieldset class="segmentos">
+              <legend>Modo</legend>
+              <label><input type="radio" name="modo" value="oculto" checked /><span>Tudo oculto</span></label>
+              <label><input type="radio" name="modo" value="lacunas" /><span>Lacunas</span></label>
+              <label><input type="radio" name="modo" value="livre" /><span>Texto livre</span></label>
+            </fieldset>
+            <fieldset class="segmentos">
+              <legend>Corrigir</legend>
+              <label><input type="radio" name="quando" value="enter" checked /><span>No Enter</span></label>
+              <label><input type="radio" name="quando" value="digitando" /><span>Enquanto digito</span></label>
+            </fieldset>
+            <fieldset class="segmentos">
+              <legend>Velocidade</legend>
+              <label><input type="radio" name="velocidade" value="0.5" /><span>0,5×</span></label>
+              <label><input type="radio" name="velocidade" value="0.75" /><span>0,75×</span></label>
+              <label><input type="radio" name="velocidade" value="1" checked /><span>1×</span></label>
+            </fieldset>
+          </div>
         </section>
       </div>
-
-      <nav id="fita" class="fita" aria-label="Falas do vídeo" hidden></nav>
     </main>
+
+    <nav id="fita" class="fita" aria-label="Falas do vídeo" hidden></nav>
+
+    <div id="ajuda" class="folha" popover>
+      <h2>Atalhos do teclado</h2>
+      <dl>
+        <div><dt><kbd>Enter</kbd></dt><dd>corrigir; depois, ver a resposta ou seguir. Com tudo vazio, ouvir</dd></div>
+        <div><dt><kbd>espaço</kbd></dt><dd>próxima palavra</dd></div>
+        <div><dt><kbd>Ctrl</kbd> <kbd>espaço</kbd></dt><dd>ouvir de novo</dd></div>
+        <div><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>fala anterior e próxima</dd></div>
+        <div><dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>mostrar ou esconder o texto</dd></div>
+        <div><dt><kbd>Ctrl</kbd> <kbd>I</kbd></dt><dd>mostrar ou esconder a tradução</dd></div>
+        <div><dt><kbd>Ctrl</kbd> <kbd>↓</kbd> <kbd>↑</kbd></dt><dd>mais devagar e mais rápido</dd></div>
+      </dl>
+    </div>
+
+    <div id="legenda" class="folha" popover>
+      <h2>Trocar a legenda</h2>
+      <p>As falas são refeitas e a prática volta ao começo. As tentativas antigas continuam salvas.</p>
+      <div class="acoes">
+        <button id="buscar-de-novo" type="button">Buscar no YouTube de novo</button>
+        <label class="botao" for="arquivo">Abrir arquivo SRT ou VTT</label>
+      </div>
+    </div>
+
+    <dialog id="fim" class="folha" aria-labelledby="fim-titulo">
+      <h2 id="fim-titulo"></h2>
+      <p id="fim-texto"></p>
+      <div class="acoes">
+        <button id="fim-falta" type="button" class="principal">Ir para a próxima que falta</button>
+        <a class="botao" href="/">Escolher outro vídeo</a>
+        <button id="fim-fechar" type="button">Ficar aqui</button>
+      </div>
+    </dialog>
   </body>
 </html>

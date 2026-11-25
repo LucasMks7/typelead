@@ -402,3 +402,14 @@ def test_diagnostico_da_tentativa_a_correcao_pela_pessoa(pasta):
     assert cliente.put(caminho, json={"tipo": "outro"}).status_code == 422
     assert cliente.put("/api/erros/999/diagnostico", json={"tipo": "escuta"}).status_code == 404
     assert cliente.put("/api/rodadas/x/desistencia", json=medidas).status_code == 422
+
+
+def test_a_tentativa_devolve_o_resumo_do_dia(pasta):
+    cliente = com_busca(pasta, ACHADO)
+    fala = cliente.post("/api/videos", json=LINK).json()["falas"][0]
+    assert cliente.get("/api/resumo").json()["hoje"] == 0
+    assert cliente.post("/api/tentativas", json=TENTATIVA | {"fala_id": fala["id"]}).json()["resumo"]["hoje"] == 1
+
+
+def test_fonte_sai_com_o_tipo_certo(cliente):
+    assert cliente.get("/fontes/red-hat-mono.woff2").headers["content-type"] == "font/woff2"

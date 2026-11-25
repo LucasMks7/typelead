@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { acaoDaTecla } from "../src/typelead/web/js/atalhos.js";
-import { Pratica, falaEm, fita, relogio } from "../src/typelead/web/js/pratica.js";
+import { Pratica, Sequencia, falaEm, fita, proximaQueFalta, relogio } from "../src/typelead/web/js/pratica.js";
 
 const falas = [
   { inicio: 1, fim: 3, texto: "The kettle is on." },
@@ -69,7 +69,8 @@ test("a fala de um instante: dentro, entre duas, antes da primeira e depois da �
 });
 
 test("a fita fica na escala do vídeo", () => {
-  assert.deepEqual(fita(falas, 20)[2], { esquerda: 45, largura: 5 });
+  assert.deepEqual(fita(falas, 20)[2], { esquerda: 45, largura: 5, altura: 47.5 });
+  assert.equal(fita(falas, 20)[0].altura, 100);
 });
 
 test("sem a duração, ou com uma menor que as falas, a fita vai até a última", () => {
@@ -126,4 +127,30 @@ test("não rouba o zoom, o Alt nem a digitação com acento", () => {
   assert.equal(acaoDaTecla({ key: "-", ctrlKey: true }), null);
   assert.equal(acaoDaTecla({ key: "ArrowUp", altKey: true }), null);
   assert.equal(acaoDaTecla({ key: "Enter", isComposing: true }, "ditado"), null);
+});
+
+test("a sequência conta acertos de primeira e sem ajuda, e zera no erro", () => {
+  const s = new Sequencia();
+  const registrar = (rodada, acertou, comAjuda = false) => s.registrar({ rodada, acertou, comAjuda });
+  assert.equal(registrar("a", true), true);
+  assert.equal(registrar("b", true), true);
+  assert.equal(s.atual, 2);
+  // Conferir de novo a mesma fala não conta outra vez.
+  assert.equal(registrar("b", true), false);
+  // Com ajuda não conta, mas também não zera.
+  assert.equal(registrar("c", true, true), false);
+  assert.equal(s.atual, 2);
+  registrar("d", false);
+  assert.equal(s.atual, 0);
+  // Consertar depois não vale como de primeira.
+  assert.equal(registrar("d", true), false);
+  assert.equal(s.atual, 0);
+});
+
+test("a próxima fala que falta dá a volta", () => {
+  const marcadas = [false, true, false].map((acertada) => ({ acertada }));
+  assert.equal(proximaQueFalta(marcadas), 0);
+  assert.equal(proximaQueFalta(marcadas, 0), 2);
+  assert.equal(proximaQueFalta(marcadas, 2), 0);
+  assert.equal(proximaQueFalta([{ acertada: true }]), -1);
 });

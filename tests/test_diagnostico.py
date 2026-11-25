@@ -81,7 +81,7 @@ def test_erro_de_dedo_em_palavra_conhecida_nao_espera_a_proxima_tentativa():
 
 def test_letras_invertidas_sao_digitacao_mesmo_em_palavra_nova():
     assert um(passo(erro("divorce", "divroce")), desistencia=Desistencia(4, 0.5, True)) == DIGITACAO
-    # Em palavra curta, a inversão pode ser outra palavra: "was" e "saw" não, mas "on" e "no" sim.
+    # Em palavra curta, a inversão pode ser outra palavra.
     assert um(passo(erro("on", "no")), desistencia=DESISTIU) == INDEFINIDO
 
 
