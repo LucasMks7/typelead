@@ -364,6 +364,13 @@ progress {
   background: var(--papel);
 }
 
+.traducao {
+  margin: 0 0 0.75rem;
+  padding-left: 0.8rem;
+  border-left: 3px solid var(--ouro);
+  color: var(--tinta-fraca);
+}
+
 .placar {
   min-height: 1.5em;
   margin: 0.4rem 0 0.8rem;

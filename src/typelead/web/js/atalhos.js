@@ -24,6 +24,7 @@ const COM_CTRL = new Map([
   ["Enter", "mostrar"],
   ["ArrowUp", "maisRapido"],
   ["ArrowDown", "maisDevagar"],
+  ["i", "traduzir"],
 ]);
 
 /**
@@ -34,7 +35,8 @@ const COM_CTRL = new Map([
 export function acaoDaTecla({ key, ctrlKey, altKey, metaKey, shiftKey, isComposing }, onde) {
   if (altKey || metaKey || isComposing || onde === "campo") return null;
   if (onde === "botao" && (key === "Enter" || key === " ")) return null;
-  if (ctrlKey) return COM_CTRL.get(key) ?? null;
+  // Com o Caps Lock, a letra vem maiúscula.
+  if (ctrlKey) return COM_CTRL.get(key.length === 1 ? key.toLowerCase() : key) ?? null;
   if (onde !== "ditado") return FORA.get(key) ?? null;
   // Shift com as setas seleciona o texto digitado.
   if (shiftKey && key.startsWith("Arrow")) return null;

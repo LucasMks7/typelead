@@ -18,7 +18,7 @@ python -m pip install -e ".[dev,gpu]"    # com placa da NVIDIA: mais 2 GB
 typelead
 ```
 
-A primeira transcrição baixa o modelo: 1,5 GB com placa da NVIDIA ou 500 MB sem.
+A primeira transcrição baixa o modelo: 1,5 GB com placa da NVIDIA ou 500 MB sem. A primeira tradução baixa outro, de 236 MB.
 
 Depois, abra http://localhost:8765. O servidor só atende este computador. Para usar outra porta: `typelead --porta 9000`.
 
@@ -40,6 +40,7 @@ Depois, abra http://localhost:8765. O servidor só atende este computador. Para 
 | Ctrl+espaço | ouvir a fala de novo |
 | ↓ e ↑ | próxima e anterior |
 | Ctrl+Enter | mostrar ou esconder o texto |
+| Ctrl+I | mostrar ou esconder a tradução |
 | Ctrl+↓ e Ctrl+↑ | mais devagar e mais rápido |
 
 Com palavras escondidas, o espaço passa para a próxima e o Backspace, em uma palavra vazia, volta à anterior. Também dá para clicar em uma palavra. A pontuação e o apóstrofo já estão à mostra e não precisam ser digitados; algarismos aparecem como `#`.
@@ -96,6 +97,7 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | `src/typelead/alinhamento.py` | Junta o texto do autor com os tempos da legenda automática |
 | `src/typelead/divisao.py` | Divide o que foi falado em trechos bons de praticar |
 | `src/typelead/transcricao.py` | Transcreve o som gravado, com o tempo de cada palavra |
+| `src/typelead/traducao.py` | Traduz uma fala, neste computador |
 | `src/typelead/transcricoes.py` | Fila de transcrições em segundo plano |
 | `src/typelead/web/js/gravador.js` | Grava o som da aba |
 | `src/typelead/web/js/player.js` | Conversa com o player do YouTube e toca um trecho exato |
@@ -109,7 +111,8 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | [docs/legendas.md](docs/legendas.md) | O que foi medido na busca de legendas |
 | [docs/transcricao.md](docs/transcricao.md) | O que foi medido na transcrição |
 | [docs/divisao.md](docs/divisao.md) | O que foi medido na divisão das falas |
+| [docs/traducao.md](docs/traducao.md) | O que foi medido na tradução |
 
 ## Licença
 
-[MIT](LICENSE)
+[MIT](LICENSE). A tradução usa o modelo [opus-mt-tc-big-en-pt](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-pt), da Universidade de Helsinque, sob [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), convertido para o CTranslate2.

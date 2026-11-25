@@ -108,6 +108,8 @@ test("com Ctrl, os atalhos que o ditado ocupou", () => {
   assert.equal(acao("ArrowUp"), "maisRapido");
   assert.equal(acao("ArrowDown"), "maisDevagar");
   assert.equal(acao("c"), null);
+  assert.equal(acao("i"), "traduzir");
+  assert.equal(acao("I"), "traduzir");
 });
 
 test("outro campo, como o do link, é dono de todas as teclas", () => {

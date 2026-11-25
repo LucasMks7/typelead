@@ -180,3 +180,41 @@ def test_o_caminho_padrao_fica_nos_dados_da_pessoa(monkeypatch, tmp_path):
     monkeypatch.setenv("APPDATA", str(tmp_path))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     assert caminho_padrao() == tmp_path / "typelead" / "typelead.db"
+
+
+def test_traducao_guardada(banco):
+    salvar(banco)
+    primeira = ids(banco)[0]
+    assert banco.fala(primeira) == {"id": primeira, "texto": "The kettle.", "traducao": None}
+    banco.guardar_traducao(primeira, "A chaleira.")
+    assert banco.fala(primeira)["traducao"] == "A chaleira."
+    assert banco.abrir_video("abcdefghijk")["falas"][0]["traducao"] == "A chaleira."
+    assert banco.fala(99) is None
+
+
+def test_tentativa_com_traducao(banco):
+    salvar(banco)
+    banco.salvar_tentativa(tentativa(ids(banco)[0], "certa", traduziu=True))
+    assert banco._conexao.execute("SELECT traduziu FROM tentativas").fetchone()[0] == 1
+
+
+def test_cada_migracao_preserva_os_dados(tmp_path, monkeypatch):
+    """Um banco da primeira versão, com dados, chega à atual."""
+    caminho = tmp_path / "typelead.db"
+    todas = modulo.MIGRACOES
+    monkeypatch.setattr(modulo, "MIGRACOES", todas[:1])
+    antigo = Banco(caminho)
+    antigo._conexao.executescript(
+        """
+        INSERT INTO videos VALUES ('abcdefghijk', 'Chá', 'Canal', 10, 1, 'autor', 1, 0, '2026-01-01');
+        INSERT INTO falas VALUES (1, 'abcdefghijk', 1, 0, 0, 2, 'The kettle.', '[]');
+        INSERT INTO tentativas VALUES (1, 1, 'r', 'oculto', 'enter', 'the kettle', 1, 0, 1, 1, 3, '2026-01-01');
+        INSERT INTO itens VALUES (1, 1, 'certa', 0, 'The', 'the', 'the');
+        """
+    )
+    antigo.fechar()
+    monkeypatch.setattr(modulo, "MIGRACOES", todas)
+    novo = Banco(caminho)
+    video = novo.abrir_video("abcdefghijk")
+    assert (video["titulo"], video["falas"][0]["acertada"], video["falas"][0]["traducao"]) == ("Chá", True, None)
+    novo.fechar()

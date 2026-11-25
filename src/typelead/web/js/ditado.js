@@ -13,6 +13,7 @@ export class Resposta {
   #repeticoes = 0;
   #velocidade = null;
   #desde = null;
+  #traduziu = false;
 
   /** Une as tentativas seguidas na mesma fala. */
   rodada = crypto.randomUUID();
@@ -89,11 +90,17 @@ export class Resposta {
     this.#velocidade = Math.min(this.#velocidade ?? velocidade, velocidade);
   }
 
-  /** Como a pessoa chegou até aqui: quanto ouviu, a menor velocidade e os segundos. */
+  /** A tradução apareceu. Depois do acerto, já não é pista. */
+  traduziu() {
+    if (!this.acertou) this.#traduziu = true;
+  }
+
+  /** Como a pessoa chegou até aqui: quanto ouviu, a menor velocidade, se traduziu e os segundos. */
   medidas(agora) {
     return {
       repeticoes: this.#repeticoes,
       velocidade: this.#velocidade ?? 1,
+      traduziu: this.#traduziu,
       duracao: Math.max(0, (agora - (this.#desde ?? agora)) / 1000),
     };
   }

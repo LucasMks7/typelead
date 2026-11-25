@@ -66,6 +66,7 @@
 
           <div id="fala" class="fala" aria-live="polite"></div>
 
+          <p id="traducao" class="traducao" role="status" hidden></p>
           <label class="oculto" for="digitado">O que você ouviu, em inglês</label>
           <textarea id="digitado" class="digitado" rows="2" lang="en" maxlength="1000" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Digite o que ouviu"></textarea>
           <p id="placar" class="placar" role="status"></p>
@@ -75,6 +76,7 @@
             <button id="repetir" type="button" class="principal" title="Ouvir de novo (Ctrl+espaço)">Ouvir</button>
             <button id="avancar" type="button" title="Próxima fala (↓)">↓ Próxima</button>
             <button id="mostrar" type="button" title="Mostrar ou esconder o texto (Ctrl+Enter)" aria-pressed="false">Mostrar texto</button>
+            <button id="traduzir" type="button" title="Mostrar ou esconder a tradução (Ctrl+I)" aria-pressed="false">Tradução</button>
             <label class="velocidade">
               Velocidade
               <select id="velocidade">
@@ -101,7 +103,7 @@
           </div>
 
           <p class="ajuda">
-            <kbd>Enter</kbd> corrigir e seguir <kbd>Ctrl</kbd><kbd>espaço</kbd> ouvir <kbd>↑</kbd><kbd>↓</kbd> mudar de fala <kbd>Ctrl</kbd><kbd>Enter</kbd> texto <kbd>Ctrl</kbd><kbd>↑</kbd><kbd>↓</kbd> velocidade
+            <kbd>Enter</kbd> corrigir e seguir <kbd>Ctrl</kbd><kbd>espaço</kbd> ouvir <kbd>↑</kbd><kbd>↓</kbd> mudar de fala <kbd>Ctrl</kbd><kbd>Enter</kbd> texto <kbd>Ctrl</kbd><kbd>I</kbd> tradução <kbd>Ctrl</kbd><kbd>↑</kbd><kbd>↓</kbd> velocidade
           </p>
         </section>
       </div>

@@ -22,6 +22,7 @@ from .divisao import dividir
 from .legendas import TAMANHO_MAXIMO as LEGENDA_MAXIMA
 from .legendas import Fala, LegendaInvalida, Palavra, ler_arquivo
 from .links import LinkInvalido, reconhecer
+from .traducao import FalhaNaTraducao, Tradutor
 from .transcricao import FalhaNaTranscricao, Marca
 from .transcricoes import TAMANHO_MAXIMO, Transcricoes
 from .youtube import FalhaNoYouTube
@@ -95,6 +96,7 @@ class TentativaRecebida(BaseModel):
     velocidade: float = Field(gt=0, le=2)
     duracao: float = Field(ge=0, le=10_000_000)
     itens: list[ItemRecebido] = Field(min_length=1, max_length=2000)
+    traduziu: bool = False
 
 
 class MarcaRecebida(BaseModel):
@@ -111,10 +113,12 @@ def criar_app(
     transcricoes: Transcricoes | None = None,
     buscar: Callable = youtube.buscar,
     banco: Banco | None = None,
+    tradutor: Tradutor | None = None,
 ) -> FastAPI:
     """Os parâmetros existem para os testes usarem dublês. Sem banco, nada vai para o disco."""
     transcricoes = transcricoes or Transcricoes()
     banco = banco or Banco()
+    tradutor = tradutor or Tradutor()
     # A documentação automática carregaria scripts de outro site.
     app = FastAPI(title="typelead", docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -195,6 +199,19 @@ def criar_app(
     def marcar_posicao(identificador: IdDoVideo, recebida: PosicaoRecebida):
         if not banco.marcar_posicao(identificador, recebida.posicao):
             raise HTTPException(404, "Este vídeo não está salvo.")
+
+    @app.post("/api/falas/{numero}/traducao")
+    def traduzir_fala(numero: int):
+        fala = banco.fala(numero)
+        if fala is None:
+            raise HTTPException(404, "Esta fala não está salva.")
+        if fala["traducao"] is None:
+            try:
+                fala["traducao"] = tradutor.traduzir(fala["texto"])
+            except FalhaNaTraducao as erro:
+                raise HTTPException(503, str(erro)) from erro
+            banco.guardar_traducao(numero, fala["traducao"])
+        return {"traducao": fala["traducao"]}
 
     @app.post("/api/tentativas", status_code=201)
     def salvar_tentativa(recebida: TentativaRecebida):

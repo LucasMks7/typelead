@@ -41,6 +41,7 @@ A ideia de digitar junto com vídeos já existe em outros sites. O que este proj
 - **Banco:** SQLite, com SQL escrito à mão. É parte do objetivo de currículo.
 - **Vídeo:** player oficial incorporado do YouTube, ou arquivo do próprio PC na tag `<video>`. O programa não baixa o vídeo do YouTube. Quando o dono proíbe a incorporação, entra a extensão.
 - **Transcrição:** faster-whisper, reaproveitando o que foi medido no transcritor de aulas. Na GTX 1050 Ti, `large-v3-turbo` em `int8`. Aqui será usado o tempo de cada palavra. A velocidade foi medida em português; em inglês será medida na sessão 44.
+- **Tradução:** OPUS-MT inglês-português, no processador, pelo CTranslate2 que o faster-whisper já traz. Só quando a pessoa pede.
 - **Revisão espaçada:** algoritmo FSRS, pela biblioteca `fsrs` (licença MIT).
 - **IA paga:** nenhuma no caminho principal. Explicações começam por um dicionário offline.
 

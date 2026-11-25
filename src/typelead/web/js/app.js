@@ -27,6 +27,7 @@ const $ = (id) => document.getElementById(id);
 let video; // o que o servidor disse do vídeo aberto
 let player;
 let pratica;
+let traducaoAberta = false;
 let respostas; // por modo e fala: voltar a uma delas traz o que foi digitado
 // Muda a cada vídeo aberto: uma resposta atrasada do anterior é ignorada.
 let abertura = 0;
@@ -220,6 +221,8 @@ function praticar({ falas, origem, posicao, comeco }) {
   $("total").textContent = falas.length;
   $("origem").textContent = ORIGENS[origem];
   $("velocidade").value = String(pratica.velocidade);
+  traducaoAberta = false;
+  mostrarTraducao();
   montarFita();
   atualizar();
   $("digitado").focus();
@@ -409,6 +412,11 @@ const ACOES = {
     atualizar();
     salvarTentativa(resposta);
   },
+  traduzir: () => {
+    traducaoAberta = !traducaoAberta;
+    if (traducaoAberta) respostaAtual().traduziu();
+    mostrarTraducao();
+  },
   enter: () => ACOES[respostaAtual().proximoPasso(pratica.mostrada)](),
   maisDevagar: () => {
     pratica.mudarVelocidade(-1);
@@ -419,6 +427,27 @@ const ACOES = {
     atualizar();
   },
 };
+
+async function mostrarTraducao() {
+  $("traduzir").setAttribute("aria-pressed", String(traducaoAberta));
+  $("traducao").hidden = !traducaoAberta;
+  if (!traducaoAberta) return;
+  const { fala } = pratica;
+  if (fala.traducao) return escreverTraducao(fala.traducao);
+  escreverTraducao("Traduzindo… Na primeira vez, o tradutor é baixado da internet (236 MB).");
+  try {
+    if (fala.id === undefined) throw new Error("Só uma fala salva pode ser traduzida.");
+    fala.traducao = (await pedir(`/api/falas/${fala.id}/traducao`, { method: "POST" })).traducao;
+    if (pratica?.fala === fala && traducaoAberta) escreverTraducao(fala.traducao);
+  } catch (erro) {
+    if (pratica?.fala === fala && traducaoAberta) escreverTraducao(erro.message);
+  }
+}
+
+function escreverTraducao(texto) {
+  $("traducao").textContent = texto;
+  $("traducao").title = "Tradução automática: pode errar, principalmente em expressões";
+}
 
 function salvarTentativa(resposta) {
   if (pratica.fala.id === undefined) return;
@@ -441,6 +470,8 @@ function mudar(movimento) {
   const { id } = video;
   const posicao = pratica.indice;
   if (pratica.fala.id !== undefined) salvar(() => enviarJson(`/api/videos/${id}/posicao`, { posicao }, "PUT"));
+  traducaoAberta = false;
+  mostrarTraducao();
   atualizar();
   $("digitado").focus();
   ouvir();
@@ -459,7 +490,7 @@ $("arquivo").addEventListener("change", ({ target }) => {
   if (target.files[0]) abrirArquivo(target.files[0]);
   target.value = "";
 });
-for (const id of ["voltar", "repetir", "avancar", "mostrar"]) {
+for (const id of ["voltar", "repetir", "avancar", "mostrar", "traduzir"]) {
   $(id).addEventListener("click", () => ACOES[id]());
 }
 $("velocidade").addEventListener("change", ({ target }) => {

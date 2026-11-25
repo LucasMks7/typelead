@@ -78,16 +78,26 @@ test("fala sem palavra não prende ninguém", () => {
 
 test("as medidas: quanto ouviu, a menor velocidade e o tempo desde que a fala apareceu", () => {
   const r = new Resposta(FALA);
-  assert.deepEqual(r.medidas(5000), { repeticoes: 0, velocidade: 1, duracao: 0 });
+  assert.deepEqual(r.medidas(5000), { repeticoes: 0, velocidade: 1, traduziu: false, duracao: 0 });
   r.comecou(1000);
   r.comecou(4000);
   r.ouviu(1);
   r.ouviu(0.5);
   r.ouviu(0.75);
-  assert.deepEqual(r.medidas(6500), { repeticoes: 3, velocidade: 0.5, duracao: 5.5 });
+  assert.deepEqual(r.medidas(6500), { repeticoes: 3, velocidade: 0.5, traduziu: false, duracao: 5.5 });
 });
 
 test("cada resposta tem a própria rodada", () => {
   assert.match(digitando("").rodada, /^[0-9a-f-]{36}$/);
   assert.notEqual(digitando("").rodada, digitando("").rodada);
+});
+
+test("ver a tradução antes do acerto fica registrado; depois, não", () => {
+  const antes = digitando("bring");
+  antes.traduziu();
+  assert.equal(antes.medidas(0).traduziu, true);
+  const depois = digitando("bring two cups");
+  depois.conferir();
+  depois.traduziu();
+  assert.equal(depois.medidas(0).traduziu, false);
 });

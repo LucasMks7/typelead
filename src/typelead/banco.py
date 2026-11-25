@@ -73,6 +73,11 @@ MIGRACOES = (
     CREATE INDEX itens_da_tentativa ON itens (tentativa_id);
     CREATE INDEX itens_da_forma ON itens (forma);
     """,
+    """
+    ALTER TABLE falas ADD COLUMN traducao TEXT;
+    -- A pessoa viu a tradução antes de responder.
+    ALTER TABLE tentativas ADD COLUMN traduziu INTEGER NOT NULL DEFAULT 0;
+    """,
 )
 
 
@@ -100,6 +105,7 @@ class Tentativa:
     velocidade: float
     duracao: float
     itens: tuple[Item, ...]
+    traduziu: bool = False
 
     @property
     def acertou(self) -> bool:
@@ -198,7 +204,7 @@ class Banco:
             conexao.execute("UPDATE videos SET aberto_em = ? WHERE id = ?", (_agora(), identificador))
             falas = conexao.execute(
                 """
-                SELECT falas.id, inicio, fim, falas.texto,
+                SELECT falas.id, inicio, fim, falas.texto, traducao,
                        EXISTS (
                            SELECT 1 FROM tentativas
                            WHERE fala_id = falas.id AND acertou AND NOT com_ajuda
@@ -247,6 +253,17 @@ class Banco:
                 conexao.execute("UPDATE videos SET posicao = ? WHERE id = ?", (posicao, identificador)).rowcount > 0
             )
 
+    # Falas
+
+    def fala(self, numero: int) -> dict | None:
+        with self._usar() as conexao:
+            linha = conexao.execute("SELECT id, texto, traducao FROM falas WHERE id = ?", (numero,)).fetchone()
+        return dict(linha) if linha else None
+
+    def guardar_traducao(self, numero: int, traducao: str) -> None:
+        with self._usar() as conexao:
+            conexao.execute("UPDATE falas SET traducao = ? WHERE id = ?", (traducao, numero))
+
     # Tentativas
 
     def salvar_tentativa(self, tentativa: Tentativa) -> int | None:
@@ -257,8 +274,8 @@ class Banco:
             numero = conexao.execute(
                 """
                 INSERT INTO tentativas (fala_id, rodada, modo, corrigir, texto, acertou, com_ajuda,
-                                        repeticoes, velocidade, duracao, criada_em)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        repeticoes, velocidade, duracao, traduziu, criada_em)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     tentativa.fala_id,
@@ -271,6 +288,7 @@ class Banco:
                     tentativa.repeticoes,
                     tentativa.velocidade,
                     tentativa.duracao,
+                    tentativa.traduziu,
                     _agora(),
                 ),
             ).lastrowid

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from typelead.banco import Banco
 from typelead.legendas import Fala
 from typelead.servidor import criar_app
+from typelead.traducao import Tradutor
 from typelead.transcricao import FalhaNaTranscricao
 from typelead.transcricoes import Transcricoes
 from typelead.youtube import Achado, FalhaNoYouTube
@@ -352,3 +353,35 @@ def test_falha_do_banco_vira_uma_mensagem(pasta):
     resposta = quebrado.get("/api/videos")
     assert resposta.status_code == 500 and "salvar" in resposta.json()["detail"]
     assert cliente.get("/api/videos").status_code == 200
+
+
+def test_traduz_uma_vez_e_guarda(pasta):
+    pedidos = []
+
+    def traduzir(texto):
+        pedidos.append(texto)
+        return "A chaleira está no fogo."
+
+    cliente = TestClient(
+        criar_app(Transcricoes(pasta=pasta), lambda v: Achado(video=v, **ACHADO), tradutor=Tradutor(lambda: traduzir)),
+        base_url=BASE,
+    )
+    fala = cliente.post("/api/videos", json=LINK).json()["falas"][0]
+    for _ in range(2):
+        resposta = cliente.post(f"/api/falas/{fala['id']}/traducao")
+        assert resposta.json() == {"traducao": "A chaleira está no fogo."}
+    assert pedidos == ["The kettle is on."]
+    assert cliente.post("/api/falas/99/traducao").status_code == 404
+
+
+def test_tradutor_que_nao_carrega_explica_o_motivo(pasta):
+    def carregar():
+        raise OSError("sem internet")
+
+    cliente = TestClient(
+        criar_app(Transcricoes(pasta=pasta), lambda v: Achado(video=v, **ACHADO), tradutor=Tradutor(carregar)),
+        base_url=BASE,
+    )
+    fala = cliente.post("/api/videos", json=LINK).json()["falas"][0]
+    resposta = cliente.post(f"/api/falas/{fala['id']}/traducao")
+    assert resposta.status_code == 503 and "sem internet" in resposta.json()["detail"]
