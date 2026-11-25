@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Revisão — typelead</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d1214'/%3E%3Crect x='5' y='21' width='14' height='4' rx='2' fill='%23ffd84d'/%3E%3Ccircle cx='23' cy='23' r='2' fill='%23ffd84d'/%3E%3Ccircle cx='28' cy='23' r='2' fill='%23ffd84d'/%3E%3C/svg%3E" />
+    <link rel="preload" href="fontes/red-hat-mono.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="estilo.css" />
+    <script type="module" src="js/revisao.js"></script>
+  </head>
+  <body data-tela="palavras">
+    <div id="ambiente" class="ambiente" aria-hidden="true"></div>
+
+    <header class="topo">
+      <a class="marca" href="/" aria-label="typelead, início"><span>type</span><span class="escrita">lead</span></a>
+    </header>
+
+    <main>
+      <p id="aviso" class="aviso" role="status" hidden></p>
+
+      <section id="capa" class="estante">
+        <h1>Revisão</h1>
+        <p id="quantas" class="chamada">Carregando…</p>
+        <p class="acoes">
+          <button id="comecar" type="button" class="principal" hidden>Começar</button>
+          <a class="botao" href="palavras.html">Suas palavras</a>
+        </p>
+      </section>
+
+      <div id="sala" class="sala" hidden>
+        <section class="cena" aria-label="Vídeo">
+          <div id="palco" class="palco"></div>
+          <div class="sob-o-video">
+            <p class="titulo"><strong id="titulo"></strong></p>
+          </div>
+        </section>
+
+        <section id="pratica" class="pratica" aria-label="Revisão">
+          <p class="posicao">
+            <span>Trecho <b id="numero"></b> de <b id="total"></b></span>
+          </p>
+
+          <div class="quadro">
+            <div id="fala" class="fala com-lacunas" lang="en"></div>
+            <label class="oculto" for="digitado">As palavras que faltam, em inglês</label>
+            <textarea id="digitado" class="digitado oculto" rows="2" lang="en" maxlength="1000" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+            <p id="traducao" class="traducao" hidden></p>
+          </div>
+
+          <p id="placar" class="placar" role="status"></p>
+
+          <div class="controles">
+            <button id="repetir" type="button" class="ouvir" title="Ouvir (Ctrl+espaço)">
+              <span class="barras" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              Ouvir
+            </button>
+            <button id="seguir" type="button" title="Enter">Conferir</button>
+            <button id="nao-sei" type="button" title="Ver a resposta (Ctrl+Enter)">Não sei</button>
+            <button id="pular" type="button" class="discreto" title="Deixar este trecho para depois">Pular</button>
+          </div>
+
+          <div class="ajustes">
+            <fieldset class="segmentos">
+              <legend>Velocidade</legend>
+              <label><input type="radio" name="velocidade" value="0.5" /><span>0,5×</span></label>
+              <label><input type="radio" name="velocidade" value="0.75" /><span>0,75×</span></label>
+              <label><input type="radio" name="velocidade" value="1" checked /><span>1×</span></label>
+            </fieldset>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

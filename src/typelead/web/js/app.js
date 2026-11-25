@@ -3,6 +3,7 @@
 import { SemServidor, ateVoltar, enviarJson, insistir, pedir, transcrever } from "./api.js";
 import { acaoDaTecla } from "./atalhos.js";
 import "./fechado.js";
+import { ligarCampo } from "./campo.js";
 import { separar } from "./correcao.js";
 import { criar, desenharErro, desenharPalavra, marcar } from "./desenho.js";
 import { QUANDO_CORRIGIR, Resposta } from "./ditado.js";
@@ -609,62 +610,18 @@ $("buscar-de-novo").addEventListener("click", () => {
   $("legenda").hidePopover();
   abrir(`https://www.youtube.com/watch?v=${video.id}`, true);
 });
-$("digitado").addEventListener("input", ({ target, isComposing }) => {
-  // No meio de um acento, mexer no campo o desmancharia; "compositionend" vem depois.
-  if (!isComposing) escrever(target);
-});
-$("digitado").addEventListener("compositionend", ({ target }) => escrever(target));
-
-function escrever(campo) {
-  const resposta = respostaAtual();
-  // O cursor fica onde estava no texto já arrumado.
-  const posicao = resposta.arrumar(campo.value.slice(0, campo.selectionStart)).length;
-  const antes = resposta.texto.length;
-  resposta.escrever(campo.value);
-  if (resposta instanceof Lacunas && resposta.texto.length === antes + 1) {
-    const { palavra, letra } = resposta.cursor(posicao);
-    nova = { palavra, letra: letra - 1 };
-  }
-  if (campo.value !== resposta.texto) {
-    campo.value = resposta.texto;
-    campo.setSelectionRange(posicao, posicao);
-  }
-  // Nas lacunas, digitar com a resposta à mostra volta aos pontos.
-  if (resposta instanceof Lacunas && pratica.mostrada) {
-    pratica.mostrar(false);
-    atualizar();
-  } else atualizarFala();
-}
-
-// O cursor das lacunas é desenhado: acompanha o do campo.
-document.addEventListener("selectionchange", () => {
-  if (pratica && document.activeElement === $("digitado") && respostaAtual() instanceof Lacunas) atualizarFala();
-});
-$("fala").addEventListener("click", ({ target }) => {
-  const palavra = target.closest("[data-oculta]");
-  const resposta = pratica && respostaAtual();
-  if (!(resposta instanceof Lacunas)) return;
-  $("digitado").focus();
-  if (!palavra) return;
-  irParaPalavra(resposta, Number(palavra.dataset.oculta));
-});
-
-function irParaPalavra(resposta, palavra) {
-  const { texto, posicao } = resposta.irPara(palavra);
-  resposta.escrever(texto);
-  $("digitado").value = texto;
-  $("digitado").setSelectionRange(posicao, posicao);
-  atualizarFala();
-}
-
-$("digitado").addEventListener("beforeinput", (evento) => {
-  const resposta = respostaAtual();
-  const { selectionStart, selectionEnd } = evento.target;
-  if (!(resposta instanceof Lacunas) || selectionStart !== selectionEnd) return;
-  const palavra = resposta.passo(evento.inputType, evento.data, selectionStart);
-  if (palavra === undefined) return;
-  evento.preventDefault();
-  if (palavra !== null) irParaPalavra(resposta, palavra);
+ligarCampo({
+  campo: $("digitado"),
+  fala: $("fala"),
+  resposta: () => pratica && respostaAtual(),
+  aoMudar: (mudanca) => {
+    nova = mudanca.nova ?? nova;
+    // Nas lacunas, digitar com a resposta à mostra volta aos pontos.
+    if (mudanca.digitando && pratica.mostrada && respostaAtual() instanceof Lacunas) {
+      pratica.mostrar(false);
+      atualizar();
+    } else atualizarFala();
+  },
 });
 
 function mudarPreferencia({ target }) {
@@ -791,6 +748,9 @@ async function comecar() {
     mostrarResumo(resumo);
     mostrarSemana(resumo);
     mostrarRecentes(videos);
+    const { total } = await pedir("/api/revisao");
+    $("revisar").hidden = total === 0;
+    $("revisar").textContent = `Revisar ${total} ${total === 1 ? "palavra" : "palavras"}`;
   } catch (erro) {
     falhou(erro);
   }

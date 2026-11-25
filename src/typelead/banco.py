@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 from itertools import groupby
 from pathlib import Path
 
+from . import revisao
 from .alinhamento import normalizar
 from .diagnostico import Desistencia, Erro, Passo, diagnosticar
 from .legendas import Fala, Palavra
@@ -101,6 +102,28 @@ MIGRACOES = (
         marcada_em TEXT NOT NULL
     );
     """,
+    """
+    -- Nasce na primeira revisão; antes dela, a data sai do último erro.
+    CREATE TABLE cartoes (
+        forma TEXT PRIMARY KEY,
+        -- O estado do FSRS, em JSON, como a biblioteca o escreve.
+        estado TEXT NOT NULL,
+        vence_em TEXT NOT NULL,
+        revisto_em TEXT NOT NULL
+    );
+    CREATE TABLE revisoes (
+        id INTEGER PRIMARY KEY,
+        forma TEXT NOT NULL,
+        fala_id INTEGER NOT NULL REFERENCES falas (id),
+        -- 1: errou; 2: acertou com esforço; 3: acertou bem.
+        nota INTEGER NOT NULL,
+        digitada TEXT NOT NULL,
+        quase INTEGER NOT NULL,
+        repeticoes INTEGER NOT NULL,
+        velocidade REAL NOT NULL,
+        criada_em TEXT NOT NULL
+    );
+    """,
 )
 
 # Como foi cada palavra em cada rodada: uma linha por erro que conta e por acerto
@@ -138,6 +161,8 @@ OCORRENCIAS = f"""
         WHERE tipo = 'certa' AND NOT com_ajuda AND forma GLOB '*[a-z]*'
           -- No texto livre, um item pode valer por duas palavras: "going to".
           AND NOT (modo = 'livre' AND instr(esperada, ' '))
+        UNION ALL
+        SELECT forma, 'revisao ' || id, nota = 1, criada_em FROM revisoes
     ),
     por_rodada AS (
         SELECT forma, rodada, MAX(errou) AS errou, MAX(criada_em) AS quando
@@ -147,6 +172,9 @@ OCORRENCIAS = f"""
         SELECT *, MAX(CASE WHEN errou THEN quando END) OVER (PARTITION BY forma) AS ultimo_erro
         FROM por_rodada
     ),
+    exemplos AS (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY forma ORDER BY id DESC) AS do_fim_da_forma FROM erros
+    ),
     historico AS (
         SELECT forma, SUM(errou) AS erros, SUM(NOT errou) AS acertos, ultimo_erro,
                SUM(NOT errou AND (ultimo_erro IS NULL OR quando > ultimo_erro)) AS acertos_seguidos,
@@ -154,6 +182,9 @@ OCORRENCIAS = f"""
         FROM com_ultimo_erro GROUP BY forma
     )
 """
+
+
+CAMPOS_DO_TRECHO = ("fala_id", "inicio", "fim", "texto", "traducao", "video_id", "titulo")
 
 
 class FalhaNoBanco(RuntimeError):
@@ -387,8 +418,11 @@ class Banco:
             linhas = conexao.execute(
                 """
                 SELECT date(criada_em, 'localtime') AS dia, COUNT(DISTINCT fala_id) AS certas
-                FROM tentativas
-                WHERE acertou AND NOT com_ajuda
+                FROM (
+                    SELECT criada_em, fala_id FROM tentativas WHERE acertou AND NOT com_ajuda
+                    UNION ALL
+                    SELECT criada_em, fala_id FROM revisoes WHERE nota > 1
+                )
                 GROUP BY dia
                 """
             ).fetchall()
@@ -415,10 +449,7 @@ class Banco:
         with self._usar() as conexao:
             linhas = conexao.execute(
                 f"""
-                WITH {OCORRENCIAS},
-                exemplos AS (
-                    SELECT *, ROW_NUMBER() OVER (PARTITION BY forma ORDER BY id DESC) AS do_fim_da_forma FROM erros
-                )
+                WITH {OCORRENCIAS}
                 SELECT historico.*, exemplos.posicao, esperada, motivo, fala_id, inicio, fim, falas.texto, traducao,
                        video_id, titulo
                 FROM historico
@@ -443,6 +474,85 @@ class Banco:
                 )
             else:
                 conexao.execute("DELETE FROM palavras_sabidas WHERE forma = ?", (forma,))
+
+    # Revisão
+
+    def revisar(self, hoje: date | None = None, limite: int = 20) -> dict:
+        """Os trechos vencidos, cada um com as palavras a completar, e quantas palavras venceram.
+
+        As palavras da mesma fala vêm juntas: em separado, uma entregaria a outra. O
+        limite é de palavras, e o último trecho pode passar dele.
+        """
+        with self._usar() as conexao:
+            linhas = conexao.execute(
+                f"""
+                WITH {OCORRENCIAS},
+                prazos AS (
+                    SELECT historico.forma, sabida,
+                           CASE
+                               -- Errada de novo na prática depois da última revisão: volta antes.
+                               WHEN vence_em IS NULL THEN date(ultimo_erro, 'localtime', '+1 day')
+                               WHEN ultimo_erro > revisto_em
+                                   THEN MIN(date(vence_em, 'localtime'), date(ultimo_erro, 'localtime', '+1 day'))
+                               ELSE date(vence_em, 'localtime')
+                           END AS prazo
+                    FROM historico LEFT JOIN cartoes ON cartoes.forma = historico.forma
+                )
+                SELECT prazos.forma, prazo, exemplos.posicao, esperada, fala_id, inicio, fim, falas.texto, traducao,
+                       video_id, titulo
+                FROM prazos
+                JOIN exemplos ON exemplos.forma = prazos.forma AND do_fim_da_forma = 1
+                JOIN falas ON falas.id = fala_id
+                JOIN videos ON videos.id = video_id
+                WHERE NOT sabida AND prazo <= ?
+                ORDER BY prazo, video_id, ordem, exemplos.posicao
+                """,
+                ((hoje or date.today()).isoformat(),),
+            ).fetchall()
+        trechos: dict[int, dict] = {}
+        for linha in linhas:
+            trecho = {campo: linha[campo] for campo in CAMPOS_DO_TRECHO} | {"palavras": []}
+            palavra = {"forma": linha["forma"], "posicao": linha["posicao"], "esperada": linha["esperada"]}
+            trechos.setdefault(linha["fala_id"], trecho)["palavras"].append(palavra)
+        escolhidos, quantas = [], 0
+        for trecho in trechos.values():
+            if quantas >= limite:
+                break
+            escolhidos.append(trecho)
+            quantas += len(trecho["palavras"])
+        # Trocar de vídeo custa uma espera: os do mesmo vídeo vêm seguidos.
+        ordem = {trecho["video_id"]: i for i, trecho in reversed(list(enumerate(escolhidos)))}
+        escolhidos.sort(key=lambda trecho: ordem[trecho["video_id"]])
+        return {"trechos": escolhidos, "total": len(linhas)}
+
+    def salvar_revisao(
+        self, forma: str, fala_id: int, acertou: bool, quase: bool, digitada: str, repeticoes: int, velocidade: float
+    ) -> str | None:
+        """Agenda a próxima vez e devolve quando é, ou None se a fala não existe."""
+        agora = _agora()
+        nota = revisao.dar_nota(acertou, quase, repeticoes, velocidade)
+        with self._usar() as conexao:
+            if conexao.execute("SELECT 1 FROM falas WHERE id = ?", (fala_id,)).fetchone() is None:
+                return None
+            cartao = conexao.execute("SELECT estado FROM cartoes WHERE forma = ?", (forma,)).fetchone()
+            estado, vence = revisao.agendar(cartao and cartao["estado"], nota, datetime.fromisoformat(agora))
+            vence_em = vence.astimezone(timezone.utc).isoformat(timespec="microseconds")
+            conexao.execute(
+                """
+                INSERT INTO revisoes (forma, fala_id, nota, digitada, quase, repeticoes, velocidade, criada_em)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (forma, fala_id, nota, digitada, quase, repeticoes, velocidade, agora),
+            )
+            conexao.execute(
+                """
+                INSERT INTO cartoes (forma, estado, vence_em, revisto_em) VALUES (?, ?, ?, ?)
+                ON CONFLICT (forma) DO UPDATE SET
+                    estado = excluded.estado, vence_em = excluded.vence_em, revisto_em = excluded.revisto_em
+                """,
+                (forma, estado, vence_em, agora),
+            )
+        return vence_em
 
     # Diagnóstico
 

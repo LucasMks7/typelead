@@ -434,3 +434,17 @@ def test_nivel_desconhecido_e_recusado(cliente):
 def test_lista_de_palavras_comeca_vazia(cliente):
     assert cliente.get("/api/palavras").json() == []
     assert cliente.get("/palavras.html").status_code == 200
+
+
+# Revisão
+
+
+def test_revisao_vazia(cliente):
+    assert cliente.get("/api/revisao").json() == {"trechos": [], "total": 0}
+    assert cliente.get("/revisao.html").status_code == 200
+
+
+def test_revisao_de_fala_que_nao_existe(cliente):
+    dados = {"forma": "kettle", "fala_id": 9, "acertou": True, "quase": False, "digitada": "kettle"}
+    assert cliente.post("/api/revisao", json=dados | {"repeticoes": 1, "velocidade": 1}).status_code == 404
+    assert cliente.post("/api/revisao", json=dados | {"repeticoes": -1, "velocidade": 1}).status_code == 422

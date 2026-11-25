@@ -83,7 +83,8 @@ A API oficial do YouTube não resolve a legenda: ela só permite baixá-la a que
 | `tentativas` | Uma resposta: modo, texto digitado, repetições, velocidade, dicas e duração |
 | `itens` | Cada palavra de uma tentativa: a esperada, a digitada, se estava certa e o diagnóstico |
 | `desistencias` | Quando a pessoa pediu a resposta |
-| `cartoes` | Estado da revisão espaçada de cada palavra ou fala |
+| `cartoes` | Estado da revisão espaçada de cada palavra |
+| `revisoes` | Cada resposta da revisão: a nota, o que foi digitado e quanto ouviu |
 
 ## Como descobrir o tipo do erro
 

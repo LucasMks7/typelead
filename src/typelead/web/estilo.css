@@ -163,6 +163,7 @@ button[aria-pressed="true"]:not(.icone) {
 }
 
 button.principal,
+a.principal,
 button.ouvir {
   color: var(--sobre-legenda);
   background: var(--legenda);
@@ -171,6 +172,7 @@ button.ouvir {
 }
 
 button.principal:hover:not(:disabled),
+a.principal:hover,
 button.ouvir:hover:not(:disabled) {
   background: #ffe27d;
 }

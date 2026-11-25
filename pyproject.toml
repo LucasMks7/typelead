@@ -25,6 +25,8 @@ dependencies = [
     "huggingface_hub",
     # Lê os dados e a legenda do vídeo. O YouTube muda sempre: manter atualizado.
     "yt-dlp>=2026.11",
+    # Quando cada palavra volta na revisão.
+    "fsrs>=6,<7",
     # A frequência de cada palavra no inglês. Os dados são CC BY-SA 4.0 (README).
     "wordfreq>=3.1",
 ]

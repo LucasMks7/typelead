@@ -72,6 +72,18 @@ A página **Suas palavras** lista o que você errou, com a fala de onde veio. Um
 
 Digitação não entra na lista. O que você deixou em branco e consertou sem ouvir de novo também não, nem uma palavra muito comum deixada em branco. No modo Lacunas, escolha se quer esconder mais palavras comuns, de uso médio ou raras: nada é certo, só mais provável.
 
+### Revisão
+
+A palavra errada volta a partir do dia seguinte, no trecho de vídeo em que você a errou, com o resto da fala à mostra. Palavras do mesmo trecho vêm juntas, para uma não entregar a outra. Uma letra errada ganha uma segunda chance.
+
+| Como foi | Quando volta |
+| --- | --- |
+| Errou ou clicou em **Não sei** | No dia seguinte |
+| Acertou ouvindo mais de 3 vezes, devagar ou na segunda chance | Um intervalo curto |
+| Acertou | Um intervalo maior a cada vez |
+
+Os intervalos são do algoritmo [FSRS](https://github.com/open-spaced-repetition/py-fsrs). Cada sessão traz cerca de 20 palavras, começando pelas mais atrasadas. Errar a palavra de novo na prática a traz de volta antes. Trecho acertado na revisão conta na meta do dia.
+
 ### O que fica salvo
 
 As falas de cada vídeo, o ponto em que você parou e cada tentativa, com o que foi digitado, quantas vezes ouviu e em que velocidade. Fica tudo em um arquivo SQLite, só neste computador: `%APPDATA%\typelead\typelead.db` no Windows e `~/.local/share/typelead/typelead.db` no Linux. O som e o vídeo não são guardados. Um vídeo salvo abre sem consultar a legenda de novo; o player continua precisando da internet.
@@ -118,6 +130,7 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | `src/typelead/banco.py` | Guarda vídeos, falas e tentativas no SQLite |
 | `src/typelead/diagnostico.py` | Por que cada palavra foi errada |
 | `src/typelead/palavras.py` | Como vai cada palavra e a chance de ela ser escondida |
+| `src/typelead/revisao.py` | Quando cada palavra volta |
 | `src/typelead/links.py` | Reconhece os links do YouTube e o segundo inicial |
 | `src/typelead/youtube.py` | Consulta o vídeo e escolhe a legenda, sem baixar o vídeo |
 | `src/typelead/legendas.py` | Lê SRT, VTT e o formato do YouTube |
@@ -132,6 +145,8 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | `src/typelead/web/js/medidas.js` | Contas puras, testadas fora do navegador |
 | `src/typelead/web/js/app.js` | A tela de prática |
 | `src/typelead/web/js/inicio.js`, `desenho.js`, `sons.js` | A página inicial, as palavras na tela e os sons de acerto e erro |
+| `src/typelead/web/js/cartao.js`, `revisao.js` | Um trecho em revisão e a página de revisão |
+| `src/typelead/web/js/campo.js` | O campo em que se digita, na prática e na revisão |
 | `src/typelead/web/js/palavras.js` | A página das palavras erradas |
 | `src/typelead/web/js/correcao.js` | Compara o digitado com a fala, palavra por palavra |
 | `src/typelead/web/js/lacunas.js` | As palavras escondidas: a escolha, os pontos e a correção por letra |

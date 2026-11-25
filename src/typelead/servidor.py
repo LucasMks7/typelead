@@ -131,6 +131,16 @@ class SabidaRecebida(BaseModel):
     sabida: bool
 
 
+class RevisaoRecebida(BaseModel):
+    forma: str = Field(min_length=1, max_length=200)
+    fala_id: int
+    acertou: bool
+    quase: bool
+    digitada: str = Field(max_length=200)
+    repeticoes: int = Field(ge=0, le=100_000)
+    velocidade: float = Field(gt=0, le=2)
+
+
 class MarcaRecebida(BaseModel):
     gravado: float = Field(ge=0, le=100_000)
     video: float = Field(ge=0, le=100_000)
@@ -291,6 +301,17 @@ def criar_app(
                 for palavra, forma in zip(pedido.palavras, formas(pedido.palavras))
             ]
         }
+
+    @app.get("/api/revisao")
+    def listar_revisao():
+        return banco.revisar()
+
+    @app.post("/api/revisao", status_code=201)
+    def salvar_revisao(recebida: RevisaoRecebida):
+        vence_em = banco.salvar_revisao(**recebida.model_dump())
+        if vence_em is None:
+            raise HTTPException(404, "Esta fala não está salva.")
+        return {"vence_em": vence_em}
 
     @app.post("/api/legendas")
     async def abrir_legenda(request: Request):
