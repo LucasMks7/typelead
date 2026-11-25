@@ -112,6 +112,12 @@ test("nada do texto da fala se perde ao separar", () => {
   assert.equal(juntas.replace(/\s/g, ""), fala.replace(/\s/g, ""));
 });
 
+test("as aspas de abertura são da palavra seguinte", () => {
+  const separadas = separar("She paid “about $5” (50% off)—right?");
+  assert.deepEqual(separadas.map((p) => p.texto), ["She", "paid", "“about", "$5”", "(50", "%", "off)—", "right?"]);
+  assert.deepEqual(separadas.filter((p) => p.colada).map((p) => p.texto), ["%", "right?"]);
+});
+
 test("no meio da digitação, só as palavras terminadas são corrigidas", () => {
   assert.deepEqual(corrigirParcial("Bring two cups", ""), []);
   assert.deepEqual(corrigirParcial("Bring two cups", "brin"), []);

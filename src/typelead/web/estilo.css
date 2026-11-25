@@ -176,6 +176,7 @@ button:disabled {
 }
 
 .painel {
+  position: relative;
   display: flex;
   flex-direction: column;
   padding: 1.25rem 1.5rem;
@@ -263,7 +264,66 @@ progress {
   border-bottom: 2px solid var(--ouro);
 }
 
-.digitado {
+/* As lacunas: uma linha por palavra e, sobre ela, um ponto ou uma letra. A largura
+   é fixa para a fala não dançar enquanto a pessoa digita. */
+.fala.com-lacunas {
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+  line-height: 1.9;
+  word-spacing: 0.15em;
+  cursor: text;
+}
+
+.lacunada {
+  display: inline-block;
+  line-height: 1.35;
+  border-bottom: 2px solid var(--tinta-fraca);
+}
+
+.pratica:has(#digitado:focus) .lacunada:has(.cursor, .cursor-depois) {
+  border-color: var(--ouro);
+}
+
+.casa {
+  position: relative;
+  display: inline-block;
+  min-width: 1ch;
+  text-align: center;
+}
+
+.casa.vazia {
+  color: var(--tinta-fraca);
+}
+
+.casa.faltou {
+  color: var(--ouro);
+}
+
+.casa.certa {
+  color: var(--verde);
+}
+
+/* Além da cor, o risco. */
+.casa.errada {
+  color: var(--erro);
+  text-decoration: line-through 2px;
+}
+
+.pratica:has(#digitado:focus) :is(.cursor, .cursor-depois)::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.15em;
+  left: -1px;
+  width: 2px;
+  background: var(--ouro);
+}
+
+.pratica:has(#digitado:focus) .cursor-depois::before {
+  left: auto;
+  right: -1px;
+}
+
+.digitado:not(.oculto) {
   width: 100%;
   resize: vertical;
   font-size: 1.15rem;

@@ -16,7 +16,7 @@ O repositório se chama `typelead`; a pasta local continua `04-englishVideos`.
 A ideia de digitar junto com vídeos já existe em outros sites. O que este projeto tenta fazer melhor:
 
 1. **Falas de tamanho bom.** A legenda original traz linhas de 1 palavra e linhas de 35. O programa junta as curtas e divide as longas.
-2. **Lacunas escolhidas por motivo.** Esconde as palavras que valem a pena treinar, conforme o nível e o histórico de erros.
+2. **Lacunas escolhidas por motivo.** Esconde as palavras que valem a pena treinar, conforme o nível e o histórico de erros. Por enquanto, elas são sorteadas; a escolha depende do banco de palavras (sessão 52).
 3. **Diagnóstico do erro.** Separa erro de digitação, palavra desconhecida e palavra conhecida que o ouvido não pegou.
 4. **Revisão espaçada com o trecho original.** A palavra errada volta dias depois, no áudio em que apareceu.
 5. **Sem cota de minutos e sem assinatura.** Roda no PC; os dados são do usuário e saem para o Anki.
@@ -26,8 +26,9 @@ A ideia de digitar junto com vídeos já existe em outros sites. O que este proj
 
 | Modo | O que a pessoa faz | Quando entra |
 | --- | --- | --- |
-| Ditado | Ouve e digita a fala inteira; a correção vem no Enter ou durante a digitação | Primeira versão utilizável |
-| Lacunas | Completa as palavras escondidas | Primeira versão utilizável |
+| Tudo oculto | Ouve e completa a fala inteira, vendo quantas letras tem cada palavra | Primeira versão utilizável |
+| Lacunas | Igual, com algumas palavras sorteadas à mostra | Primeira versão utilizável |
+| Texto livre | Ouve e digita a fala inteira, sem pista | Primeira versão utilizável |
 | Revisão | Refaz os trechos vencidos | Segunda etapa |
 | Assistir | Vê o vídeo com a legenda que acompanha | Segunda etapa |
 | Repetição em voz alta | Grava a própria fala e compara | Depois da v1.0 |

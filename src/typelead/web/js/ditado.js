@@ -30,7 +30,7 @@ export class Resposta {
 
   /** O texto atual é o que foi conferido. */
   get conferida() {
-    return this.#conferido !== null && this.#conferido === this.#texto.trim();
+    return this.#conferido !== null && this.#conferido === this.#texto.trimEnd();
   }
 
   get acertou() {
@@ -46,8 +46,22 @@ export class Resposta {
     return separar(this.#texto).length === 0;
   }
 
+  /** Não há o que digitar nesta fala. */
+  get semPalavras() {
+    return separar(this.#fala).length === 0;
+  }
+
   escrever(texto) {
-    this.#texto = texto;
+    this.#texto = this.arrumar(texto);
+  }
+
+  /** O que fica de um texto digitado. Aqui, tudo. */
+  arrumar(texto) {
+    return texto;
+  }
+
+  corrigirTexto() {
+    return corrigir(this.#fala, this.#texto);
   }
 
   parcial() {
@@ -55,8 +69,8 @@ export class Resposta {
   }
 
   conferir() {
-    this.#itens = corrigir(this.#fala, this.#texto);
-    this.#conferido = this.#texto.trim();
+    this.#itens = this.corrigirTexto();
+    this.#conferido = this.#texto.trimEnd();
   }
 
   /** A fala foi mostrada. Depois do acerto, já não é ajuda. */
@@ -66,7 +80,7 @@ export class Resposta {
 
   /** O que o Enter faz agora. Um Enter por passo, sem tirar a mão do teclado. */
   proximoPasso(mostrada) {
-    if (separar(this.#fala).length === 0) return "avancar";
+    if (this.semPalavras) return "avancar";
     if (this.conferida) return this.acertou || mostrada ? "avancar" : "mostrar";
     if (this.vazia) return mostrada ? "avancar" : "repetir";
     return "conferir";

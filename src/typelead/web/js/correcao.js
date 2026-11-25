@@ -75,17 +75,25 @@ function porExtenso(numero) {
   return [DEZENAS[Math.floor(numero / 10)] + (unidade ? ` ${ATE_VINTE[unidade]}` : "")];
 }
 
-/** As palavras do texto, cada uma como aparece (com a pontuação) e suas leituras. */
+/**
+ * As palavras do texto, cada uma como aparece (com a pontuação) e suas leituras.
+ * `colada`: não há espaço entre ela e a anterior, como no "%" de "50%".
+ */
 export function separar(texto) {
   const reto = texto.replace(/[’‘´`ʼ]/g, "'");
   const achadas = [...reto.matchAll(PALAVRA)];
-  return achadas.map((achada, i) => {
-    const comeco = i === 0 ? 0 : achada.index;
-    return {
-      texto: texto.slice(comeco, achadas[i + 1]?.index).trim(),
-      leituras: leituras(limpar(achada[0])),
-    };
+  // Onde cada uma começa, contando a pontuação que a abre: as aspas, o "$".
+  const comecos = achadas.map((achada, i) => {
+    if (i === 0) return 0;
+    const fim = achadas[i - 1].index + achadas[i - 1][0].length;
+    const aberta = texto.slice(fim, achada.index).match(/\s(\S*)$/);
+    return achada.index - (aberta?.[1].length ?? 0);
   });
+  return achadas.map((achada, i) => ({
+    texto: texto.slice(comecos[i], comecos[i + 1]).trim(),
+    leituras: leituras(limpar(achada[0])),
+    colada: i > 0 && !/\s/.test(texto[comecos[i] - 1]),
+  }));
 }
 
 function limpar(palavra) {

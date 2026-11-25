@@ -2,8 +2,10 @@
 
 import { enviarJson, pedir, transcrever } from "./api.js";
 import { acaoDaTecla } from "./atalhos.js";
+import { separar } from "./correcao.js";
 import { QUANDO_CORRIGIR, Resposta } from "./ditado.js";
 import { Gravacao, pedirSomDaAba } from "./gravador.js";
+import { Lacunas, sortearOcultas } from "./lacunas.js";
 import { Player } from "./player.js";
 import { Pratica, fita, relogio } from "./pratica.js";
 
@@ -14,12 +16,18 @@ const ORIGENS = {
   arquivo: "Legenda do seu arquivo",
 };
 
+const MODOS = {
+  oculto: (fala) => new Lacunas(fala.texto),
+  lacunas: (fala) => new Lacunas(fala.texto, sortearOcultas(separar(fala.texto).length)),
+  livre: (fala) => new Resposta(fala.texto),
+};
+
 const $ = (id) => document.getElementById(id);
 
 let video; // o que o servidor disse do vídeo aberto
 let player;
 let pratica;
-let respostas; // por fala: voltar a uma delas traz o que foi digitado
+let respostas; // por modo e fala: voltar a uma delas traz o que foi digitado
 // Muda a cada vídeo aberto: uma resposta atrasada do anterior é ignorada.
 let abertura = 0;
 
@@ -180,7 +188,7 @@ async function abrirArquivo(arquivo) {
 
 function praticar(falas, origem) {
   pratica = new Pratica(falas, video.comeco);
-  respostas = falas.map((fala) => new Resposta(fala.texto));
+  respostas = { oculto: [], lacunas: [], livre: [] };
   $("sem-legenda").hidden = true;
   $("pratica").hidden = false;
   $("total").textContent = falas.length;
@@ -191,7 +199,12 @@ function praticar(falas, origem) {
   $("digitado").focus();
 }
 
-const respostaAtual = () => respostas[pratica.indice];
+/** Criada na primeira vez e guardada: as palavras sorteadas não mudam ao voltar. */
+function respostaAtual() {
+  const doModo = respostas[$("modo").value];
+  doModo[pratica.indice] ??= MODOS[$("modo").value](pratica.fala);
+  return doModo[pratica.indice];
+}
 const corrigeDigitando = () => $("quando").value === "digitando";
 
 function montarFita() {
@@ -236,6 +249,14 @@ function atualizar() {
 function atualizarFala() {
   const resposta = respostaAtual();
   const { mostrada } = pratica;
+  $("placar").textContent = placar(resposta, mostrada);
+  $("placar").classList.toggle("certo", resposta.acertou);
+
+  const comLacunas = resposta instanceof Lacunas;
+  $("fala").classList.toggle("com-lacunas", comLacunas && !resposta.semPalavras);
+  $("digitado").classList.toggle("oculto", comLacunas);
+  if (comLacunas && !resposta.semPalavras) return desenharLacunas(resposta, mostrada);
+
   let itens = resposta.itens;
   if (corrigeDigitando() && !resposta.conferida && !mostrada) itens = resposta.parcial();
   if (itens?.length === 0) itens = null;
@@ -248,9 +269,52 @@ function atualizarFala() {
   // O leitor de tela precisa saber que o texto é em inglês.
   if (itens || mostrada) $("fala").lang = "en";
   else $("fala").removeAttribute("lang");
+}
 
-  $("placar").textContent = placar(resposta, mostrada);
-  $("placar").classList.toggle("certo", resposta.acertou);
+/** A fala com pontos no lugar das letras escondidas. */
+function desenharLacunas(resposta, mostrada) {
+  const campo = $("digitado");
+  const cursor = resposta.cursor(campo.selectionStart);
+  const partes = resposta.vista(corrigeDigitando()).flatMap((palavra) => {
+    const desenhada = desenharPalavra(palavra, mostrada, cursor, resposta.itens);
+    return palavra.colada ? [desenhada] : [" ", desenhada];
+  });
+  $("fala").classList.remove("escondida");
+  $("fala").lang = "en";
+  $("fala").replaceChildren(...partes);
+}
+
+function desenharPalavra({ oculta, texto, sinais, letras, tipo }, mostrada, cursor, itens) {
+  const por = (pai, tag, textContent, mais) => {
+    const filho = Object.assign(document.createElement(tag), { textContent, ...mais });
+    pai.append(filho);
+    return filho;
+  };
+  const marca = document.createElement("span");
+  marca.className = "palavra";
+  if (oculta === null) {
+    marca.textContent = texto;
+    return marca;
+  }
+  // Com a resposta à mostra: a palavra certa, ou a digitada riscada e a certa.
+  if (mostrada) {
+    const { digitada } = itens?.[oculta] ?? {};
+    if (tipo === "certa") return marcar({ tipo, esperada: texto }, true);
+    if (tipo) return marcar({ tipo, esperada: texto, digitada }, true);
+    por(marca, "strong", texto);
+    return marca;
+  }
+  marca.classList.add("lacunada");
+  marca.dataset.oculta = oculta;
+  por(marca, "span", `${letras} ${letras === 1 ? "letra" : "letras"}`, { className: "oculto", lang: "pt-BR" });
+  const casas = sinais.map(({ sinal, estado }) => por(marca, "span", sinal, { className: `casa ${estado}`, ariaHidden: "true" }));
+  if (oculta === cursor.palavra) {
+    const daLetra = casas.filter((casa) => !casa.classList.contains("fixo"));
+    // Com a palavra completa, o cursor espera depois da última letra.
+    if (cursor.letra < letras) daLetra[cursor.letra].classList.add("cursor");
+    else daLetra.at(-1).classList.add("cursor-depois");
+  }
+  return marca;
 }
 
 /** Uma palavra corrigida. A resposta só aparece se a fala estiver à mostra. */
@@ -354,16 +418,77 @@ $("velocidade").addEventListener("change", ({ target }) => {
   pratica.definirVelocidade(Number(target.value));
   atualizar();
 });
-$("digitado").addEventListener("input", ({ target }) => {
-  respostaAtual().escrever(target.value);
+$("digitado").addEventListener("input", ({ target, isComposing }) => {
+  // No meio de um acento, mexer no campo o desmancharia; "compositionend" vem depois.
+  if (!isComposing) escrever(target);
+});
+$("digitado").addEventListener("compositionend", ({ target }) => escrever(target));
+
+function escrever(campo) {
+  const resposta = respostaAtual();
+  // O cursor fica onde estava no texto já arrumado.
+  const posicao = resposta.arrumar(campo.value.slice(0, campo.selectionStart)).length;
+  resposta.escrever(campo.value);
+  if (campo.value !== resposta.texto) {
+    campo.value = resposta.texto;
+    campo.setSelectionRange(posicao, posicao);
+  }
+  // Nas lacunas, digitar com a resposta à mostra volta aos pontos.
+  if (resposta instanceof Lacunas && pratica.mostrada) {
+    pratica.mostrar(false);
+    atualizar();
+  } else atualizarFala();
+}
+
+// O cursor das lacunas é desenhado: acompanha o do campo.
+document.addEventListener("selectionchange", () => {
+  if (pratica && document.activeElement === $("digitado") && respostaAtual() instanceof Lacunas) atualizarFala();
+});
+$("fala").addEventListener("click", ({ target }) => {
+  const palavra = target.closest("[data-oculta]");
+  const resposta = pratica && respostaAtual();
+  if (!(resposta instanceof Lacunas)) return;
+  $("digitado").focus();
+  if (!palavra) return;
+  irParaPalavra(resposta, Number(palavra.dataset.oculta));
+});
+
+function irParaPalavra(resposta, palavra) {
+  const { texto, posicao } = resposta.irPara(palavra);
+  resposta.escrever(texto);
+  $("digitado").value = texto;
+  $("digitado").setSelectionRange(posicao, posicao);
   atualizarFala();
+}
+
+$("digitado").addEventListener("beforeinput", (evento) => {
+  const resposta = respostaAtual();
+  const { selectionStart, selectionEnd } = evento.target;
+  if (!(resposta instanceof Lacunas) || selectionStart !== selectionEnd) return;
+  const palavra = resposta.passo(evento.inputType, evento.data, selectionStart);
+  if (palavra === undefined) return;
+  evento.preventDefault();
+  if (palavra !== null) irParaPalavra(resposta, palavra);
 });
-$("quando").addEventListener("change", ({ target }) => {
-  guardar("quando", target.value);
+
+function mudarPreferencia({ target }) {
+  guardar(target.id, target.value);
   // Anunciar cada palavra digitada atropelaria o leitor de tela.
-  $("fala").ariaLive = corrigeDigitando() ? "off" : "polite";
-  if (pratica) atualizarFala();
-});
+  $("fala").ariaLive = corrigeDigitando() || $("modo").value !== "livre" ? "off" : "polite";
+  if (!pratica) return;
+  if (target.id === "modo") pratica.mostrar(false);
+  atualizar();
+}
+
+// Escolhida uma opção com o mouse, o foco volta ao ditado. Com o teclado, não: cada
+// seta muda a opção, e o foco fugiria na primeira.
+let comMouse = false;
+document.addEventListener("pointerdown", () => (comMouse = true), true);
+document.addEventListener("keydown", () => (comMouse = false), true);
+for (const id of ["modo", "quando", "velocidade"]) {
+  $(id).addEventListener("change", () => comMouse && pratica && $("digitado").focus());
+}
+for (const id of ["modo", "quando"]) $(id).addEventListener("change", mudarPreferencia);
 $("fita").addEventListener("click", ({ target }) => {
   if (target.dataset.indice) mudar(() => pratica.irPara(Number(target.dataset.indice)));
 });
@@ -420,9 +545,9 @@ function guardado(nome) {
   }
 }
 
-if (QUANDO_CORRIGIR.includes(guardado("quando"))) {
-  $("quando").value = guardado("quando");
-  $("quando").dispatchEvent(new Event("change"));
+for (const [id, aceitos] of [["modo", Object.keys(MODOS)], ["quando", QUANDO_CORRIGIR]]) {
+  if (aceitos.includes(guardado(id))) $(id).value = guardado(id);
+  mudarPreferencia({ target: $(id) });
 }
 
 const pedido = new URLSearchParams(location.search).get("v");
