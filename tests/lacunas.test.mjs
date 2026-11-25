@@ -152,3 +152,8 @@ test("o sorteio não tem preferência por posição", () => {
   // Esperado: 3000 em cada. O desvio padrão é 39; 250 são mais de seis deles.
   assert.ok(vezes.every((v) => Math.abs(v - 3000) < 250), vezes.join());
 });
+
+test("a posição é a da palavra na fala, e não entre as escondidas", () => {
+  const l = com("cups", "Bring two cups.", new Set([2]));
+  assert.deepEqual(l.corrigirTexto().map((i) => [i.esperada, i.posicao]), [["cups.", 2]]);
+});

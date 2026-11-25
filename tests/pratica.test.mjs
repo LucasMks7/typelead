@@ -18,8 +18,9 @@ test("começa na primeira fala, com o texto escondido e em velocidade normal", (
   assert.equal(p.quantasPalavras, 4);
 });
 
-test("começa na fala do tempo pedido no link", () => {
-  assert.equal(new Pratica(falas, 4).indice, 1);
+test("continua da fala pedida, sem passar das pontas", () => {
+  assert.equal(new Pratica(falas, 1).indice, 1);
+  assert.equal(new Pratica(falas, 99).indice, 2);
 });
 
 test("avançar e voltar param nas pontas", () => {

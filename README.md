@@ -4,7 +4,7 @@
 
 Treino de inglês com vídeos: ouvir uma fala por vez, digitar o que entendeu e rever os erros. Roda no próprio PC, sem conta e sem assinatura.
 
-> **Status:** em desenvolvimento. Já dá para abrir um vídeo e praticar uma fala por vez, em três modos; salvar o progresso é o próximo passo. Nada é salvo ainda: recarregar a página perde as respostas e uma transcrição. O plano completo está em [PLANO.md](PLANO.md).
+> **Status:** em desenvolvimento. Já dá para abrir um vídeo, praticar uma fala por vez, em três modos, e continuar de onde parou. O plano completo está em [PLANO.md](PLANO.md).
 
 > **Uso pessoal:** os Termos de Serviço do YouTube restringem downloads e o acesso automatizado. O vídeo toca no player oficial do YouTube e não é baixado. Este projeto não tem ligação com o YouTube.
 
@@ -46,6 +46,10 @@ Com palavras escondidas, o espaço passa para a próxima e o Backspace, em uma p
 
 Em **Corrigir**, dá para escolher **enquanto digito**. Com palavras escondidas, a correção é letra por letra; no texto livre, cada palavra é corrigida ao apertar espaço, sem revelar a resposta.
 
+### O que fica salvo
+
+As falas de cada vídeo, o ponto em que você parou e cada tentativa, com o que foi digitado, quantas vezes ouviu e em que velocidade. Fica tudo em um arquivo SQLite, só neste computador: `%APPDATA%\typelead\typelead.db` no Windows e `~/.local/share/typelead/typelead.db` no Linux. O som e o vídeo não são guardados. Um vídeo salvo abre sem consultar a legenda de novo; o player continua precisando da internet.
+
 ### O que conta como certo
 
 Maiúscula, pontuação e acento não contam em nenhum modo. Com palavras escondidas, vale a forma da legenda. No texto livre:
@@ -85,6 +89,7 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | Parte | O que faz |
 | --- | --- |
 | `src/typelead/servidor.py` | Servidor local: a interface e a API, só para este computador |
+| `src/typelead/banco.py` | Guarda vídeos, falas e tentativas no SQLite |
 | `src/typelead/links.py` | Reconhece os links do YouTube e o segundo inicial |
 | `src/typelead/youtube.py` | Consulta o vídeo e escolhe a legenda, sem baixar o vídeo |
 | `src/typelead/legendas.py` | Lê SRT, VTT e o formato do YouTube |

@@ -3,6 +3,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
+from typelead.banco import Banco
 from typelead.legendas import Fala
 from typelead.servidor import criar_app
 from typelead.transcricao import FalhaNaTranscricao
@@ -265,3 +266,89 @@ def test_abre_um_arquivo_de_legenda(cliente):
 def test_arquivo_que_nao_e_legenda(cliente):
     assert cliente.post("/api/legendas", content=b"nada").status_code == 422
     assert cliente.post("/api/legendas", content=b"a" * 5_000_001).status_code == 413
+
+
+# O que fica salvo
+
+TENTATIVA = {
+    "rodada": "0b0e7a52-0000-4000-8000-000000000000",
+    "modo": "lacunas",
+    "corrigir": "enter",
+    "texto": "the kettle",
+    "com_ajuda": False,
+    "repeticoes": 1,
+    "velocidade": 1,
+    "duracao": 4.2,
+    "itens": [{"tipo": "certa", "posicao": 0, "esperada": "The", "digitada": "the"}],
+}
+LINK = {"link": "youtu.be/aqz-KE-bpKQ"}
+
+
+def test_video_salvo_abre_sem_consultar_o_youtube(pasta):
+    vezes = []
+
+    def buscar(video):
+        vezes.append(video.id)
+        return Achado(video=video, **ACHADO)
+
+    cliente = TestClient(criar_app(Transcricoes(pasta=pasta), buscar), base_url=BASE)
+    primeira = cliente.post("/api/videos", json=LINK).json()
+    segunda = cliente.post("/api/videos", json=LINK).json()
+    assert primeira == segunda and len(vezes) == 1
+    cliente.post("/api/videos", json=LINK | {"novo": True})
+    assert len(vezes) == 2
+
+
+def test_continua_de_onde_parou(pasta):
+    cliente = com_busca(pasta, ACHADO)
+    cliente.post("/api/videos", json=LINK)
+    assert cliente.put("/api/videos/aqz-KE-bpKQ/posicao", json={"posicao": 3}).status_code == 204
+    assert cliente.post("/api/videos", json=LINK).json()["posicao"] == 3
+    assert cliente.put("/api/videos/aaaaaaaaaaa/posicao", json={"posicao": 3}).status_code == 404
+    assert cliente.put("/api/videos/aqz-KE-bpKQ/posicao", json={"posicao": -1}).status_code == 422
+    assert cliente.put("/api/videos/curto/posicao", json={"posicao": 1}).status_code == 422
+
+
+def test_tentativa_certa_marca_a_fala_e_aparece_nos_recentes(pasta):
+    cliente = com_busca(pasta, ACHADO)
+    fala = cliente.post("/api/videos", json=LINK).json()["falas"][0]
+    assert cliente.post("/api/tentativas", json=TENTATIVA | {"fala_id": fala["id"]}).status_code == 201
+    assert cliente.post("/api/videos", json=LINK).json()["falas"][0]["acertada"]
+    recentes = cliente.get("/api/videos").json()
+    assert [(v["id"], v["acertadas"], v["total"]) for v in recentes] == [("aqz-KE-bpKQ", 1, 1)]
+
+
+@pytest.mark.parametrize(
+    "mudanca",
+    [{"modo": "outro"}, {"rodada": "x"}, {"itens": []}, {"velocidade": 0}, {"itens": [{"tipo": "x"}]}],
+)
+def test_tentativa_malformada(pasta, mudanca):
+    cliente = com_busca(pasta, ACHADO)
+    fala = cliente.post("/api/videos", json=LINK).json()["falas"][0]
+    assert cliente.post("/api/tentativas", json=TENTATIVA | {"fala_id": fala["id"]} | mudanca).status_code == 422
+
+
+def test_tentativa_em_fala_que_nao_existe(cliente):
+    assert cliente.post("/api/tentativas", json=TENTATIVA | {"fala_id": 99}).status_code == 404
+
+
+def test_transcricao_salva_nao_se_perde(pasta):
+    cliente = com_busca(pasta, FalhaNoYouTube("recusado", "Recusou."))
+    cliente.post("/api/videos", json=LINK)
+    assert cliente.get("/api/videos").json() == []
+    falas = [{"inicio": 1, "fim": 2, "texto": "The kettle.", "palavras": [{"texto": "The", "inicio": 1, "fim": 1.2}]}]
+    corpo = {"titulo": "Chá", "canal": "", "duracao": None, "origem": "som", "falas": falas}
+    salvo = cliente.put("/api/videos/aqz-KE-bpKQ/falas", json=corpo).json()
+    assert salvo["falas"][0]["id"]
+    aberto = cliente.post("/api/videos", json=LINK).json()
+    assert (aberto["origem"], aberto["titulo"], aberto["falas"][0]["texto"]) == ("som", "Chá", "The kettle.")
+
+
+def test_falha_do_banco_vira_uma_mensagem(pasta):
+    cliente = com_busca(pasta, ACHADO)
+    banco = Banco()
+    banco.fechar()
+    quebrado = TestClient(criar_app(Transcricoes(pasta=pasta), banco=banco), base_url=BASE, raise_server_exceptions=False)
+    resposta = quebrado.get("/api/videos")
+    assert resposta.status_code == 500 and "salvar" in resposta.json()["detail"]
+    assert cliente.get("/api/videos").status_code == 200

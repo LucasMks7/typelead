@@ -219,6 +219,7 @@ function caminho(tabela, esperadas, digitadas, i, j) {
       tipo,
       esperada: juntar(esperadas.slice(i, i + a)),
       digitada: juntar(digitadas.slice(j, j + b)),
+      posicao: i,
       palavras: a,
     });
   }

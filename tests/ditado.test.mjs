@@ -75,3 +75,19 @@ test("com o texto à mostra e nada digitado, o Enter avança", () => {
 test("fala sem palavra não prende ninguém", () => {
   assert.equal(digitando("", "—").proximoPasso(false), "avancar");
 });
+
+test("as medidas: quanto ouviu, a menor velocidade e o tempo desde que a fala apareceu", () => {
+  const r = new Resposta(FALA);
+  assert.deepEqual(r.medidas(5000), { repeticoes: 0, velocidade: 1, duracao: 0 });
+  r.comecou(1000);
+  r.comecou(4000);
+  r.ouviu(1);
+  r.ouviu(0.5);
+  r.ouviu(0.75);
+  assert.deepEqual(r.medidas(6500), { repeticoes: 3, velocidade: 0.5, duracao: 5.5 });
+});
+
+test("cada resposta tem a própria rodada", () => {
+  assert.match(digitando("").rodada, /^[0-9a-f-]{36}$/);
+  assert.notEqual(digitando("").rodada, digitando("").rodada);
+});

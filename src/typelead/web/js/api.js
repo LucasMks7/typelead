@@ -16,9 +16,9 @@ export async function pedir(caminho, opcoes = {}) {
   throw new ErroDaApi(detalhe ?? `O typelead recusou o pedido (código ${resposta.status}).`);
 }
 
-export const enviarJson = (caminho, dados) =>
+export const enviarJson = (caminho, dados, method = "POST") =>
   pedir(caminho, {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(dados),
   });

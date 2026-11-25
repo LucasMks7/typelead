@@ -10,6 +10,12 @@ export class Resposta {
   #conferido = null;
   #itens = null;
   #comAjuda = false;
+  #repeticoes = 0;
+  #velocidade = null;
+  #desde = null;
+
+  /** Une as tentativas seguidas na mesma fala. */
+  rodada = crypto.randomUUID();
 
   constructor(fala) {
     this.#fala = fala;
@@ -71,6 +77,25 @@ export class Resposta {
   conferir() {
     this.#itens = this.corrigirTexto();
     this.#conferido = this.#texto.trimEnd();
+  }
+
+  /** A fala apareceu na tela. Vale a primeira vez. */
+  comecou(agora) {
+    this.#desde ??= agora;
+  }
+
+  ouviu(velocidade) {
+    this.#repeticoes += 1;
+    this.#velocidade = Math.min(this.#velocidade ?? velocidade, velocidade);
+  }
+
+  /** Como a pessoa chegou até aqui: quanto ouviu, a menor velocidade e os segundos. */
+  medidas(agora) {
+    return {
+      repeticoes: this.#repeticoes,
+      velocidade: this.#velocidade ?? 1,
+      duracao: Math.max(0, (agora - (this.#desde ?? agora)) / 1000),
+    };
   }
 
   /** A fala foi mostrada. Depois do acerto, já não é ajuda. */

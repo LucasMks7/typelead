@@ -75,11 +75,11 @@ A API oficial do YouTube não resolve a legenda: ela só permite baixá-la a que
 
 | Tabela | O que guarda |
 | --- | --- |
-| `videos` | Origem, título, duração e idioma |
-| `falas` | Início, fim, texto, tradução e ordem dentro do vídeo |
+| `videos` | Origem, título, duração e o ponto em que a pessoa parou |
+| `falas` | Início, fim, texto, tradução e ordem dentro do vídeo; trocar a legenda cria outra versão |
 | `palavras` | Forma base, frequência no inglês e situação para o usuário |
 | `tentativas` | Uma resposta: modo, texto digitado, repetições, velocidade, dicas e duração |
-| `erros` | Palavra esperada, palavra digitada e tipo do erro |
+| `itens` | Cada palavra de uma tentativa: a esperada, a digitada e se estava certa |
 | `cartoes` | Estado da revisão espaçada de cada palavra ou fala |
 
 ## Como descobrir o tipo do erro

@@ -7,7 +7,7 @@ import { QUANDO_CORRIGIR, Resposta } from "./ditado.js";
 import { Gravacao, pedirSomDaAba } from "./gravador.js";
 import { Lacunas, sortearOcultas } from "./lacunas.js";
 import { Player } from "./player.js";
-import { Pratica, fita, relogio } from "./pratica.js";
+import { Pratica, falaEm, fita, relogio } from "./pratica.js";
 
 const ORIGENS = {
   autor: "",
@@ -41,16 +41,26 @@ function avisar(texto, erro = false) {
 
 const falhou = (erro) => avisar(erro.message, true);
 
+// Salvar
+
+// Um pedido por vez, na ordem em que aconteceram.
+let salvando = Promise.resolve();
+
+function salvar(pedido) {
+  salvando = salvando.then(pedido).catch((erro) => avisar(`Isto não foi salvo. ${erro.message}`, true));
+  return salvando;
+}
+
 // Abrir um vídeo
 
-async function abrir(link) {
+async function abrir(link, novo = false) {
   abertura += 1;
   const vez = abertura;
   limpar();
   avisar("Procurando o vídeo e a legenda…");
   $("abrir").querySelector("button").disabled = true;
   try {
-    const achado = await enviarJson("/api/videos", { link });
+    const achado = await enviarJson("/api/videos", { link, novo });
     if (vez !== abertura) return;
     video = achado;
     $("titulo").textContent = achado.titulo;
@@ -66,16 +76,16 @@ async function abrir(link) {
     $("sala").hidden = false;
     const alvo = document.createElement("div");
     $("palco").replaceChildren(alvo);
-    const novo = await Player.criar(alvo, achado.id, (erro) => {
+    const criado = await Player.criar(alvo, achado.id, (erro) => {
       if (vez === abertura && erro.definitivo) falhou(erro);
     });
     if (vez !== abertura) {
-      novo.destruir();
+      criado.destruir();
       return;
     }
-    player = novo;
+    player = criado;
     avisar("");
-    if (achado.falas.length > 0) praticar(achado.falas, achado.origem);
+    if (achado.falas.length > 0) praticar(achado);
     else pedirTexto(achado.motivo);
   } catch (erro) {
     if (vez !== abertura) return;
@@ -161,7 +171,7 @@ async function transcreverPeloSom() {
       if (estado === "transcrevendo") mostrarEtapa(`Transcrevendo: ${Math.round(progresso * 100)}%`, progresso);
       else mostrarEtapa("Preparando o modelo. Na primeira vez, ele é baixado da internet…");
     });
-    if (vez === abertura) praticar(falas, "som");
+    if (vez === abertura) await salvarFalas(falas, "som");
   } catch (erro) {
     if (vez !== abertura) return;
     falhou(erro);
@@ -178,16 +188,32 @@ async function abrirArquivo(arquivo) {
   avisar("");
   try {
     const { falas } = await pedir("/api/legendas", { method: "POST", body: arquivo });
-    if (vez === abertura) praticar(falas, "arquivo");
+    if (vez === abertura) await salvarFalas(falas, "arquivo");
   } catch (erro) {
     falhou(erro);
   }
 }
 
+/** Guarda as falas; com isso, cada uma ganha o número que as tentativas usam. */
+async function salvarFalas(falas, origem) {
+  const vez = abertura;
+  const { id, titulo, canal } = video;
+  const duracao = video.duracao || player.duracao || null;
+  let salvo = { falas, origem, posicao: 0 };
+  try {
+    salvo = await enviarJson(`/api/videos/${id}/falas`, { titulo, canal, duracao, origem, falas }, "PUT");
+  } catch (erro) {
+    // A transcrição levou a duração do vídeo: sem salvar, ainda dá para praticar.
+    avisar(`As falas não foram salvas. ${erro.message}`, true);
+  }
+  if (vez === abertura) praticar({ ...salvo, comeco: video.comeco });
+}
+
 // A prática
 
-function praticar(falas, origem) {
-  pratica = new Pratica(falas, video.comeco);
+function praticar({ falas, origem, posicao, comeco }) {
+  // O tempo pedido no link vale mais que o ponto em que a pessoa parou.
+  pratica = new Pratica(falas, comeco ? falaEm(falas, comeco) : posicao);
   respostas = { oculto: [], lacunas: [], livre: [] };
   $("sem-legenda").hidden = true;
   $("pratica").hidden = false;
@@ -220,6 +246,7 @@ function montarFita() {
     const rotulo = `Fala ${indice + 1}, em ${relogio(pratica.falas[indice].inicio)}`;
     bloco.title = rotulo;
     bloco.setAttribute("aria-label", rotulo);
+    bloco.toggleAttribute("data-acertada", pratica.falas[indice].acertada);
     return bloco;
   });
   $("fita").replaceChildren(...blocos);
@@ -227,6 +254,7 @@ function montarFita() {
 }
 
 function atualizar() {
+  respostaAtual().comecou(performance.now());
   $("numero").textContent = pratica.indice + 1;
   $("instante").textContent = relogio(pratica.fala.inicio);
   $("voltar").disabled = pratica.primeira;
@@ -356,6 +384,7 @@ async function ouvir() {
   const { indice } = pratica;
   const { inicio, fim } = pratica.fala;
   avisar("");
+  respostaAtual().ouviu(pratica.velocidade);
   try {
     const resultado = await player.tocarFala(inicio, fim, pratica.velocidade);
     if (resultado === "fim") $("fita").children[indice]?.setAttribute("data-ouvida", "");
@@ -378,6 +407,7 @@ const ACOES = {
     resposta.conferir();
     if (resposta.acertou && !resposta.comAjuda) $("fita").children[pratica.indice].setAttribute("data-acertada", "");
     atualizar();
+    salvarTentativa(resposta);
   },
   enter: () => ACOES[respostaAtual().proximoPasso(pratica.mostrada)](),
   maisDevagar: () => {
@@ -390,9 +420,27 @@ const ACOES = {
   },
 };
 
+function salvarTentativa(resposta) {
+  if (pratica.fala.id === undefined) return;
+  const tentativa = {
+    fala_id: pratica.fala.id,
+    rodada: resposta.rodada,
+    modo: $("modo").value,
+    corrigir: $("quando").value,
+    texto: resposta.texto,
+    com_ajuda: resposta.comAjuda,
+    ...resposta.medidas(performance.now()),
+    itens: resposta.itens.map(({ tipo, posicao, esperada, digitada }) => ({ tipo, posicao, esperada, digitada })),
+  };
+  salvar(() => enviarJson("/api/tentativas", tentativa));
+}
+
 /** Muda de fala e já toca a nova. */
 function mudar(movimento) {
   if (!movimento()) return;
+  const { id } = video;
+  const posicao = pratica.indice;
+  if (pratica.fala.id !== undefined) salvar(() => enviarJson(`/api/videos/${id}/posicao`, { posicao }, "PUT"));
   atualizar();
   $("digitado").focus();
   ouvir();
@@ -550,8 +598,36 @@ for (const [id, aceitos] of [["modo", Object.keys(MODOS)], ["quando", QUANDO_COR
   mudarPreferencia({ target: $(id) });
 }
 
+// Os últimos vídeos
+
+async function mostrarRecentes() {
+  let videos;
+  try {
+    videos = await pedir("/api/videos");
+  } catch (erro) {
+    return falhou(erro);
+  }
+  $("recentes").hidden = videos.length === 0;
+  $("lista").replaceChildren(
+    ...videos.map(({ id, titulo, canal, acertadas, total }) => {
+      const item = document.createElement("li");
+      const ir = Object.assign(document.createElement("a"), { href: `?v=${id}` });
+      const andamento = Object.assign(document.createElement("progress"), { max: total, value: acertadas, ariaHidden: "true" });
+      ir.append(
+        Object.assign(document.createElement("strong"), { textContent: titulo }),
+        Object.assign(document.createElement("span"), { textContent: canal }),
+        andamento,
+        Object.assign(document.createElement("span"), { textContent: `${acertadas} de ${total} falas certas` }),
+      );
+      item.append(ir);
+      return item;
+    }),
+  );
+}
+
 const pedido = new URLSearchParams(location.search).get("v");
-if (pedido) {
+if (!pedido) mostrarRecentes();
+else {
   const link = `https://www.youtube.com/watch?v=${pedido}`;
   $("link").value = link;
   abrir(link);

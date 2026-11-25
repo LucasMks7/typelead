@@ -165,3 +165,8 @@ test("um texto colado enorme não trava", () => {
   corrigir("I don't think he's gonna make it to the well-known place, is he?", "don't he's gonna ".repeat(100));
   assert.ok(performance.now() - comeco < 2000);
 });
+
+test("cada item diz qual palavra da fala ele é", () => {
+  const posicoes = corrigir("I do not know why", "I don't why now").map((i) => [i.tipo, i.posicao]);
+  assert.deepEqual(posicoes, [["certa", 0], ["certa", 1], ["faltou", 3], ["certa", 4], ["sobrou", 5]]);
+});

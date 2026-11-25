@@ -10,10 +10,11 @@ export class Pratica {
   #mostrada = false;
   #velocidade = 1;
 
-  constructor(falas, comeco = 0) {
+  /** `indice`: de onde continuar. */
+  constructor(falas, indice = 0) {
     if (falas.length === 0) throw new Error("Não há falas para praticar.");
     this.#falas = falas;
-    this.#indice = falaEm(falas, comeco);
+    this.#indice = Math.min(Math.max(indice, 0), falas.length - 1);
   }
 
   get falas() {

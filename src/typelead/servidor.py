@@ -2,21 +2,25 @@
 
 import argparse
 import mimetypes
+import sqlite3
 import sys
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi import Path as NoCaminho
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import youtube
+from .banco import Banco, FalhaNoBanco, Item, Tentativa, caminho_padrao
 from .divisao import dividir
 from .legendas import TAMANHO_MAXIMO as LEGENDA_MAXIMA
-from .legendas import Fala, LegendaInvalida, ler_arquivo
+from .legendas import Fala, LegendaInvalida, Palavra, ler_arquivo
 from .links import LinkInvalido, reconhecer
 from .transcricao import FalhaNaTranscricao, Marca
 from .transcricoes import TAMANHO_MAXIMO, Transcricoes
@@ -39,8 +43,58 @@ mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
 
 
+IdDoVideo = Annotated[str, NoCaminho(pattern=r"^[A-Za-z0-9_-]{11}$")]
+
+
 class PedidoDeVideo(BaseModel):
     link: str = Field(max_length=5000)
+    # Consulta o YouTube mesmo que o vídeo já esteja salvo.
+    novo: bool = False
+
+
+class PalavraRecebida(BaseModel):
+    texto: str = Field(max_length=200)
+    inicio: float = Field(ge=0, le=100_000)
+    fim: float = Field(ge=0, le=100_000)
+
+
+class FalaRecebida(BaseModel):
+    inicio: float = Field(ge=0, le=100_000)
+    fim: float = Field(ge=0, le=100_000)
+    texto: str = Field(min_length=1, max_length=2000)
+    palavras: list[PalavraRecebida] = Field(default=[], max_length=500)
+
+
+class VideoRecebido(BaseModel):
+    titulo: str = Field(max_length=500)
+    canal: str = Field(max_length=500)
+    duracao: float | None = Field(default=None, ge=0, le=1_000_000)
+    origem: Literal["som", "arquivo"]
+    falas: list[FalaRecebida] = Field(min_length=1, max_length=50_000)
+
+
+class PosicaoRecebida(BaseModel):
+    posicao: int = Field(ge=0, le=50_000)
+
+
+class ItemRecebido(BaseModel):
+    tipo: Literal["certa", "trocada", "faltou", "sobrou"]
+    posicao: int = Field(ge=0, le=2000)
+    esperada: str = Field(max_length=2000)
+    digitada: str = Field(max_length=2000)
+
+
+class TentativaRecebida(BaseModel):
+    fala_id: int
+    rodada: str = Field(pattern=r"^[0-9a-f-]{36}$")
+    modo: Literal["oculto", "lacunas", "livre"]
+    corrigir: Literal["enter", "digitando"]
+    texto: str = Field(max_length=2000)
+    com_ajuda: bool
+    repeticoes: int = Field(ge=0, le=100_000)
+    velocidade: float = Field(gt=0, le=2)
+    duracao: float = Field(ge=0, le=10_000_000)
+    itens: list[ItemRecebido] = Field(min_length=1, max_length=2000)
 
 
 class MarcaRecebida(BaseModel):
@@ -53,9 +107,14 @@ class PedidoDeTranscricao(BaseModel):
     marcas: list[MarcaRecebida] = Field(max_length=110_000)
 
 
-def criar_app(transcricoes: Transcricoes | None = None, buscar: Callable = youtube.buscar) -> FastAPI:
-    """Os parâmetros existem para os testes usarem dublês."""
+def criar_app(
+    transcricoes: Transcricoes | None = None,
+    buscar: Callable = youtube.buscar,
+    banco: Banco | None = None,
+) -> FastAPI:
+    """Os parâmetros existem para os testes usarem dublês. Sem banco, nada vai para o disco."""
     transcricoes = transcricoes or Transcricoes()
+    banco = banco or Banco()
     # A documentação automática carregaria scripts de outro site.
     app = FastAPI(title="typelead", docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -73,6 +132,14 @@ def criar_app(transcricoes: Transcricoes | None = None, buscar: Callable = youtu
         resposta.headers["Cache-Control"] = "no-store"
         return resposta
 
+    @app.exception_handler(sqlite3.Error)
+    async def banco_falhou(_: Request, erro: sqlite3.Error):
+        return JSONResponse({"detail": f"Não foi possível salvar: {erro}"}, status_code=500)
+
+    @app.get("/api/videos")
+    def listar_videos():
+        return banco.recentes()
+
     @app.post("/api/videos")
     def abrir_video(pedido: PedidoDeVideo):
         try:
@@ -80,6 +147,9 @@ def criar_app(transcricoes: Transcricoes | None = None, buscar: Callable = youtu
         except LinkInvalido as erro:
             raise HTTPException(422, str(erro)) from erro
         dados = {"id": video.id, "comeco": video.inicio}
+        # O que já foi salvo não é pedido de novo ao YouTube.
+        if not pedido.novo and (salvo := banco.abrir_video(video.id)):
+            return dados | salvo | {"motivo": None}
         try:
             achado = buscar(video)
         except FalhaNoYouTube as erro:
@@ -94,15 +164,46 @@ def criar_app(transcricoes: Transcricoes | None = None, buscar: Callable = youtu
                 "motivo": str(erro),
                 "falas": [],
             }
+        if falas := dividir(list(achado.falas)):
+            banco.salvar_video(
+                video.id, achado.titulo, achado.canal, achado.duracao, achado.incorporavel, achado.origem, falas
+            )
+            return dados | banco.abrir_video(video.id) | {"motivo": None}
         return dados | {
             "titulo": achado.titulo,
             "canal": achado.canal,
             "duracao": achado.duracao,
             "incorporavel": achado.incorporavel,
-            "origem": achado.origem,
-            "motivo": achado.motivo,
-            "falas": _para_a_tela(achado.falas),
+            "origem": None,
+            "motivo": achado.motivo or "A legenda deste vídeo está vazia.",
+            "falas": [],
         }
+
+    @app.put("/api/videos/{identificador}/falas")
+    def salvar_falas(identificador: IdDoVideo, recebido: VideoRecebido):
+        """Guarda o que foi transcrito ou lido de um arquivo."""
+        falas = [
+            Fala(f.inicio, f.fim, f.texto, tuple(Palavra(p.texto, p.inicio, p.fim) for p in f.palavras))
+            for f in recebido.falas
+        ]
+        banco.salvar_video(
+            identificador, recebido.titulo, recebido.canal, recebido.duracao, True, recebido.origem, falas
+        )
+        return banco.abrir_video(identificador)
+
+    @app.put("/api/videos/{identificador}/posicao", status_code=204)
+    def marcar_posicao(identificador: IdDoVideo, recebida: PosicaoRecebida):
+        if not banco.marcar_posicao(identificador, recebida.posicao):
+            raise HTTPException(404, "Este vídeo não está salvo.")
+
+    @app.post("/api/tentativas", status_code=201)
+    def salvar_tentativa(recebida: TentativaRecebida):
+        dados = recebida.model_dump()
+        dados["itens"] = tuple(Item(**item) for item in dados["itens"])
+        numero = banco.salvar_tentativa(Tentativa(**dados))
+        if numero is None:
+            raise HTTPException(404, "Esta fala não está salva.")
+        return {"id": numero}
 
     @app.post("/api/legendas")
     async def abrir_legenda(request: Request):
@@ -204,12 +305,18 @@ def main() -> int:
     # Importado aqui porque só o programa de verdade precisa dele.
     import uvicorn
 
+    try:
+        banco = Banco(caminho_padrao())
+    except (FalhaNoBanco, OSError) as erro:
+        print(erro, file=sys.stderr)
+        return 1
     transcricoes = Transcricoes()
     print(f"typelead em http://{NOME}:{porta} (Ctrl+C encerra)", flush=True)
     try:
-        uvicorn.run(criar_app(transcricoes), host=ENDERECO, port=porta, log_level="warning")
+        uvicorn.run(criar_app(transcricoes, banco=banco), host=ENDERECO, port=porta, log_level="warning")
     finally:
         transcricoes.encerrar()
+        banco.fechar()
     return 0
 
 

@@ -33,6 +33,7 @@ export class Lacunas extends Resposta {
     super(fala);
     this.#palavras = separar(fala.normalize("NFC")).map(({ texto, colada }, i) => ({
       texto,
+      posicao: i,
       colada,
       letras: letrasDe(texto),
       oculta: !ocultas || ocultas.has(i),
@@ -64,11 +65,11 @@ export class Lacunas extends Resposta {
   }
 
   corrigirTexto() {
-    return this.#ocultas.map(({ texto, letras }, i) => {
+    return this.#ocultas.map(({ texto, letras, posicao }, i) => {
       const digitada = this.partes[i];
       const digitadas = [...digitada];
       const certa = digitadas.length === letras.length && letras.every((l, k) => simples(l) === simples(digitadas[k]));
-      return { tipo: certa ? "certa" : digitada ? "trocada" : "faltou", esperada: texto, digitada, palavras: 1 };
+      return { tipo: certa ? "certa" : digitada ? "trocada" : "faltou", esperada: texto, digitada, posicao, palavras: 1 };
     });
   }
 
