@@ -448,3 +448,24 @@ def test_revisao_de_fala_que_nao_existe(cliente):
     dados = {"forma": "kettle", "fala_id": 9, "acertou": True, "quase": False, "digitada": "kettle"}
     assert cliente.post("/api/revisao", json=dados | {"repeticoes": 1, "velocidade": 1}).status_code == 404
     assert cliente.post("/api/revisao", json=dados | {"repeticoes": -1, "velocidade": 1}).status_code == 422
+
+
+def test_exporta_para_o_anki_so_o_que_esta_em_estudo(pasta):
+    banco = Banco()
+    banco.salvar_video("abcdefghijk", "Chá", "", 9.0, True, "autor", [Fala(0, 2, "The kettle and the teapot.")])
+    cliente = TestClient(criar_app(Transcricoes(pasta=pasta), banco=banco), base_url=BASE)
+    rodada = "0" * 8 + "-0000-0000-0000-" + "0" * 12
+    itens = [
+        {"tipo": "trocada", "posicao": posicao, "esperada": palavra, "digitada": "zzzzzz"}
+        for posicao, palavra in ((1, "kettle"), (4, "teapot."))
+    ]
+    tentativa = {"fala_id": 1, "rodada": rodada, "modo": "oculto", "corrigir": "enter", "texto": "x", "itens": itens}
+    tentativa |= {"com_ajuda": False, "repeticoes": 1, "velocidade": 0.5, "duracao": 1}
+    assert cliente.post("/api/tentativas", json=tentativa).status_code == 201
+    desistencia = {"repeticoes": 1, "velocidade": 0.5, "traduziu": False}
+    assert cliente.put(f"/api/rodadas/{rodada}/desistencia", json=desistencia).status_code == 200
+    cliente.put("/api/palavras", json={"forma": "teapot", "sabida": True})
+    resposta = cliente.get("/api/anki")
+    assert "attachment" in resposta.headers["content-disposition"]
+    assert resposta.headers["content-type"] == "text/plain; charset=utf-8"
+    assert "typelead-kettle	" in resposta.text and "typelead-teapot" not in resposta.text

@@ -77,6 +77,7 @@ async function carregar() {
   palavras = await insistir(() => pedir("/api/palavras"));
   const estudar = palavras.filter(FILTROS.estudar).length;
   $("com-palavras").hidden = palavras.length === 0;
+  $("anki").hidden = estudar === 0;
   $("resumo").textContent =
     palavras.length === 0
       ? "As palavras que você errar na prática aparecem aqui, com a fala de onde vieram."

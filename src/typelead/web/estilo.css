@@ -345,6 +345,7 @@ svg .corte {
 
 .estante .barra {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.75rem;
@@ -373,7 +374,12 @@ svg .corte {
   margin: 0;
 }
 
+.estante .acoes {
+  margin: 0;
+}
+
 .verbete > button {
+  white-space: nowrap;
   grid-area: 1 / 2 / span 4;
   align-self: center;
 }

@@ -4,7 +4,7 @@
 
 Treino de inglês com vídeos: ouvir uma fala por vez, digitar o que entendeu e rever os erros. Roda no próprio PC, sem conta e sem assinatura.
 
-> **Status:** em desenvolvimento. Já dá para abrir um vídeo, praticar uma fala por vez, em três modos, e continuar de onde parou. O plano completo está em [PLANO.md](PLANO.md).
+> **Status:** em desenvolvimento. Já dá para praticar um vídeo, uma fala por vez, saber por que errou, revisar as palavras erradas e levá-las para o Anki. O plano completo está em [PLANO.md](PLANO.md).
 
 > **Uso pessoal:** os Termos de Serviço do YouTube restringem downloads e o acesso automatizado. O vídeo toca no player oficial do YouTube e não é baixado. Este projeto não tem ligação com o YouTube.
 
@@ -84,6 +84,10 @@ A palavra errada volta a partir do dia seguinte, no trecho de vídeo em que voc�
 
 Os intervalos são do algoritmo [FSRS](https://github.com/open-spaced-repetition/py-fsrs). Cada sessão traz cerca de 20 palavras, começando pelas mais atrasadas. Errar a palavra de novo na prática a traz de volta antes. Trecho acertado na revisão conta na meta do dia.
 
+### Levar para o Anki
+
+Em **Suas palavras**, **Exportar para o Anki** baixa um arquivo com as palavras em estudo. No Anki: **Arquivo**, **Importar**, e escolha um tipo de nota com frente e verso. Cada cartão traz a fala com a lacuna e um link para ouvir o trecho no YouTube; o som não vai no arquivo. Importar de novo atualiza os cartões em vez de duplicar.
+
 ### O que fica salvo
 
 As falas de cada vídeo, o ponto em que você parou e cada tentativa, com o que foi digitado, quantas vezes ouviu e em que velocidade. Fica tudo em um arquivo SQLite, só neste computador: `%APPDATA%\typelead\typelead.db` no Windows e `~/.local/share/typelead/typelead.db` no Linux. O som e o vídeo não são guardados. Um vídeo salvo abre sem consultar a legenda de novo; o player continua precisando da internet.
@@ -131,6 +135,7 @@ Os testes em JavaScript precisam do Node 22 ou mais novo e não instalam nada.
 | `src/typelead/diagnostico.py` | Por que cada palavra foi errada |
 | `src/typelead/palavras.py` | Como vai cada palavra e a chance de ela ser escondida |
 | `src/typelead/revisao.py` | Quando cada palavra volta |
+| `src/typelead/anki.py` | O arquivo que o Anki importa |
 | `src/typelead/links.py` | Reconhece os links do YouTube e o segundo inicial |
 | `src/typelead/youtube.py` | Consulta o vídeo e escolhe a legenda, sem baixar o vídeo |
 | `src/typelead/legendas.py` | Lê SRT, VTT e o formato do YouTube |

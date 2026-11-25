@@ -17,18 +17,19 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi import Path as NoCaminho
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import youtube
+from .anki import exportar
 from .banco import Banco, FalhaNoBanco, Item, Tentativa, caminho_padrao
 from .diagnostico import Desistencia
 from .divisao import dividir
 from .legendas import TAMANHO_MAXIMO as LEGENDA_MAXIMA
 from .legendas import Fala, LegendaInvalida, Palavra, ler_arquivo
 from .links import LinkInvalido, reconhecer
-from .palavras import NOVA, formas, peso
+from .palavras import APRENDENDO, ERRANDO, NOVA, formas, peso
 from .traducao import FalhaNaTraducao, Tradutor
 from .transcricao import FalhaNaTranscricao, Marca
 from .transcricoes import TAMANHO_MAXIMO, Transcricoes
@@ -290,6 +291,14 @@ def criar_app(
     @app.put("/api/palavras", status_code=204)
     def marcar_palavra(recebida: SabidaRecebida):
         banco.marcar_sabida(recebida.forma, recebida.sabida)
+
+    @app.get("/api/anki")
+    def exportar_para_o_anki():
+        """Só as palavras que ainda estão sendo estudadas."""
+        estudando = [palavra for palavra in banco.palavras() if palavra["situacao"] in {ERRANDO, APRENDENDO}]
+        return PlainTextResponse(
+            exportar(estudando), headers={"Content-Disposition": 'attachment; filename="typelead-anki.txt"'}
+        )
 
     @app.post("/api/pesos")
     def pesar(pedido: PedidoDePesos):

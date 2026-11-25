@@ -29,7 +29,10 @@
               <label><input type="radio" name="filtro" value="prontas" /><span>Já sabidas</span></label>
               <label><input type="radio" name="filtro" value="todas" /><span>Todas</span></label>
             </fieldset>
-            <a id="revisar" class="botao" href="revisao.html">Revisão</a>
+            <div class="acoes">
+              <a id="revisar" class="botao" href="revisao.html">Revisão</a>
+              <a id="anki" class="botao" href="/api/anki" title="Um arquivo com as palavras para estudar. No Anki: Arquivo, Importar" download>Exportar para o Anki</a>
+            </div>
           </div>
           <p id="vazio" class="chamada" hidden>Nenhuma palavra aqui.</p>
           <ul id="lista" class="verbetes"></ul>
